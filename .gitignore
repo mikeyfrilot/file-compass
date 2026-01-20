@@ -51,6 +51,8 @@ dmypy.json
 # File Compass data (user-specific)
 file_compass/db/*.hnsw
 file_compass/db/*.db
+file_compass/db/*.db-journal
+file_compass/db/*.json
 
 # OS
 .DS_Store
