@@ -1,17 +1,29 @@
 """
 File Compass - Chunker Module
 Splits files into semantic chunks for embedding.
-Supports AST-aware chunking for Python files.
+Supports AST-aware chunking via tree-sitter for multiple languages.
 """
 
 import ast
 import re
 from pathlib import Path
-from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple, Dict, Any
 import logging
 
 from .config import get_config
+
+# Tree-sitter imports (optional - falls back to Python AST if unavailable)
+try:
+    import tree_sitter
+    import tree_sitter_python
+    import tree_sitter_javascript
+    import tree_sitter_typescript
+    import tree_sitter_rust
+    import tree_sitter_go
+    TREE_SITTER_AVAILABLE = True
+except ImportError:
+    TREE_SITTER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -20,34 +32,91 @@ logger = logging.getLogger(__name__)
 class Chunk:
     """Represents a chunk of file content for embedding."""
     content: str
-    chunk_type: str  # 'whole_file', 'function', 'class', 'section', 'window'
+    chunk_type: str  # 'whole_file', 'function', 'class', 'method', 'section', 'window'
     name: Optional[str]  # Function/class name if applicable
     line_start: int
     line_end: int
     preview: str  # First ~200 chars for display
+    # Scope context (parent class/module info)
+    parent_class: Optional[str] = None  # Enclosing class name for methods
+    parent_module: Optional[str] = None  # Module/namespace
+    language: Optional[str] = None  # Detected language
 
     @property
     def token_estimate(self) -> int:
         """Rough token count estimate (words * 1.3)."""
         return int(len(self.content.split()) * 1.3)
 
+    @property
+    def qualified_name(self) -> Optional[str]:
+        """Get fully qualified name (e.g., 'ClassName.method_name')."""
+        if self.name:
+            if self.parent_class:
+                return f"{self.parent_class}.{self.name}"
+            return self.name
+        return None
+
 
 class FileChunker:
     """
     Chunks files into semantic pieces for embedding.
-    Uses AST for Python, heading-based for Markdown, sliding window for others.
+    Uses tree-sitter for multi-language AST parsing, heading-based for Markdown,
+    sliding window for others.
     """
+
+    # Language mapping: extension -> (tree-sitter language module, language name)
+    LANGUAGE_MAP: Dict[str, Tuple[Any, str]] = {}
 
     def __init__(
         self,
         max_chunk_tokens: Optional[int] = None,
         chunk_overlap_tokens: Optional[int] = None,
-        min_chunk_tokens: Optional[int] = None
+        min_chunk_tokens: Optional[int] = None,
+        use_tree_sitter: bool = True
     ):
         config = get_config()
         self.max_tokens = max_chunk_tokens or config.max_chunk_tokens
         self.overlap_tokens = chunk_overlap_tokens or config.chunk_overlap_tokens
         self.min_tokens = min_chunk_tokens or config.min_chunk_tokens
+        self.use_tree_sitter = use_tree_sitter and TREE_SITTER_AVAILABLE
+
+        # Initialize tree-sitter parsers
+        self._parsers: Dict[str, Any] = {}
+        if self.use_tree_sitter:
+            self._init_tree_sitter_parsers()
+
+    def _init_tree_sitter_parsers(self):
+        """Initialize tree-sitter language parsers."""
+        if not TREE_SITTER_AVAILABLE:
+            return
+
+        # Map extensions to language modules
+        lang_configs = [
+            ([".py"], tree_sitter_python, "python"),
+            ([".js", ".jsx", ".mjs"], tree_sitter_javascript, "javascript"),
+            ([".ts"], tree_sitter_typescript.language_typescript, "typescript"),
+            ([".tsx"], tree_sitter_typescript.language_tsx, "tsx"),
+            ([".rs"], tree_sitter_rust, "rust"),
+            ([".go"], tree_sitter_go, "go"),
+        ]
+
+        for extensions, lang_module, lang_name in lang_configs:
+            try:
+                # Get language from module
+                if hasattr(lang_module, 'language'):
+                    language = tree_sitter.Language(lang_module.language())
+                else:
+                    # For typescript which returns language directly
+                    language = tree_sitter.Language(lang_module())
+
+                parser = tree_sitter.Parser(language)
+
+                for ext in extensions:
+                    self._parsers[ext] = (parser, lang_name)
+
+                logger.debug(f"Initialized tree-sitter parser for {lang_name}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize tree-sitter for {lang_name}: {e}")
 
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count from text."""
@@ -59,6 +128,9 @@ class FileChunker:
         if len(content) > max_len:
             preview += "..."
         return preview
+
+    # Maximum file size (10MB) - matches scanner limit
+    MAX_FILE_SIZE = 10 * 1024 * 1024
 
     def chunk_file(self, path: Path, content: Optional[str] = None) -> List[Chunk]:
         """
@@ -73,6 +145,13 @@ class FileChunker:
         """
         if content is None:
             try:
+                # Security: Check file size before reading
+                if path.exists():
+                    file_size = path.stat().st_size
+                    if file_size > self.MAX_FILE_SIZE:
+                        logger.warning(f"Skipping large file ({file_size} bytes): {path}")
+                        return []
+
                 content = path.read_text(encoding="utf-8", errors="replace")
             except Exception as e:
                 logger.error(f"Failed to read {path}: {e}")
@@ -81,6 +160,17 @@ class FileChunker:
         # Choose chunking strategy based on file type
         suffix = path.suffix.lower()
 
+        # Try tree-sitter for supported languages
+        if self.use_tree_sitter and suffix in self._parsers:
+            parser, lang_name = self._parsers[suffix]
+            chunks = self._chunk_with_tree_sitter(content, parser, lang_name)
+            if chunks:  # Only use if parsing succeeded
+                # Set language on all chunks
+                for chunk in chunks:
+                    chunk.language = lang_name
+                return self._finalize_chunks(chunks, content)
+
+        # Fall back to language-specific handlers
         if suffix == ".py":
             chunks = self._chunk_python(content)
         elif suffix == ".md":
@@ -90,11 +180,26 @@ class FileChunker:
         else:
             chunks = self._chunk_sliding_window(content)
 
+        return self._finalize_chunks(chunks, content)
+
+    def _finalize_chunks(self, chunks: List[Chunk], content: str) -> List[Chunk]:
+        """
+        Finalize chunks by filtering tiny ones and splitting oversized ones.
+
+        Args:
+            chunks: Raw chunks from parsing
+            content: Original file content
+
+        Returns:
+            Finalized list of chunks
+        """
         # Filter out empty/tiny chunks
         chunks = [c for c in chunks if self._estimate_tokens(c.content) >= self.min_tokens]
 
-        # If no chunks or all filtered, return whole file as single chunk
+        # If no chunks or all filtered, return whole file as single chunk (or sliding window if too large)
         if not chunks:
+            if len(content) > 6000:  # Too large for single chunk, use sliding window
+                return self._chunk_sliding_window(content)
             return [Chunk(
                 content=content,
                 chunk_type="whole_file",
@@ -103,6 +208,169 @@ class FileChunker:
                 line_end=content.count("\n") + 1,
                 preview=self._make_preview(content)
             )]
+
+        # Split any oversized chunks using sliding window (nomic-embed-text limit ~8192 tokens)
+        final_chunks = []
+        for chunk in chunks:
+            if len(chunk.content) > 6000:
+                # Re-chunk this oversized chunk
+                sub_chunks = self._chunk_sliding_window(chunk.content)
+                # Adjust line numbers relative to original chunk
+                for sc in sub_chunks:
+                    sc.line_start += chunk.line_start - 1
+                    sc.line_end += chunk.line_start - 1
+                    sc.name = chunk.name  # Preserve original name
+                    sc.parent_class = chunk.parent_class  # Preserve scope context
+                    sc.language = chunk.language
+                final_chunks.extend(sub_chunks)
+            else:
+                final_chunks.append(chunk)
+
+        return final_chunks
+
+    def _chunk_with_tree_sitter(self, content: str, parser: Any, lang_name: str) -> List[Chunk]:
+        """
+        Chunk code using tree-sitter AST parsing.
+        Supports multiple languages with consistent semantic boundaries.
+
+        Args:
+            content: File content
+            parser: Tree-sitter parser instance
+            lang_name: Language name
+
+        Returns:
+            List of Chunk objects
+        """
+        if not TREE_SITTER_AVAILABLE:
+            return []
+
+        try:
+            tree = parser.parse(bytes(content, 'utf-8'))
+        except Exception as e:
+            logger.warning(f"Tree-sitter parse failed for {lang_name}: {e}")
+            return []
+
+        chunks = []
+        lines = content.split("\n")
+
+        # Define node types to extract for each language
+        # Maps: lang_name -> (function_types, class_types, method_parent_type)
+        lang_definitions = {
+            "python": (
+                ["function_definition"],
+                ["class_definition"],
+                "class_definition"
+            ),
+            "javascript": (
+                ["function_declaration", "arrow_function", "function_expression"],
+                ["class_declaration"],
+                "class_declaration"
+            ),
+            "typescript": (
+                ["function_declaration", "arrow_function", "function_expression"],
+                ["class_declaration", "interface_declaration", "type_alias_declaration"],
+                "class_declaration"
+            ),
+            "tsx": (
+                ["function_declaration", "arrow_function", "function_expression"],
+                ["class_declaration", "interface_declaration", "type_alias_declaration"],
+                "class_declaration"
+            ),
+            "rust": (
+                ["function_item"],
+                ["struct_item", "enum_item", "impl_item", "trait_item"],
+                "impl_item"
+            ),
+            "go": (
+                ["function_declaration", "method_declaration"],
+                ["type_declaration"],
+                "type_declaration"
+            ),
+        }
+
+        func_types, class_types, method_parent = lang_definitions.get(
+            lang_name, ([], [], None)
+        )
+
+        # Track what's been extracted
+        extracted_ranges = set()
+
+        def get_node_text(node) -> str:
+            """Get text for a node."""
+            start_line = node.start_point[0]
+            end_line = node.end_point[0]
+            return "\n".join(lines[start_line:end_line + 1])
+
+        def get_node_name(node) -> Optional[str]:
+            """Extract name from node (language-specific)."""
+            # Look for identifier child
+            for child in node.children:
+                if child.type == "identifier":
+                    return child.text.decode('utf-8')
+                if child.type == "name":  # Python
+                    return child.text.decode('utf-8')
+                if child.type == "property_identifier":  # JS methods
+                    return child.text.decode('utf-8')
+            return None
+
+        def find_parent_class(node) -> Optional[str]:
+            """Find enclosing class name."""
+            parent = node.parent
+            while parent:
+                if parent.type in class_types:
+                    return get_node_name(parent)
+                parent = parent.parent
+            return None
+
+        def extract_node(node, chunk_type: str, parent_class: Optional[str] = None):
+            """Extract a node as a chunk."""
+            start_line = node.start_point[0]
+            end_line = node.end_point[0]
+
+            # Skip if already extracted
+            range_key = (start_line, end_line)
+            if range_key in extracted_ranges:
+                return
+            extracted_ranges.add(range_key)
+
+            text = get_node_text(node)
+            name = get_node_name(node)
+
+            # Skip tiny nodes
+            if self._estimate_tokens(text) < self.min_tokens:
+                return
+
+            chunks.append(Chunk(
+                content=text,
+                chunk_type=chunk_type,
+                name=name,
+                line_start=start_line + 1,  # 1-indexed
+                line_end=end_line + 1,
+                preview=self._make_preview(text),
+                parent_class=parent_class,
+                language=lang_name
+            ))
+
+        def walk_tree(node):
+            """Recursively walk tree and extract semantic nodes."""
+            # Check for functions
+            if node.type in func_types:
+                parent_class = find_parent_class(node)
+                chunk_type = "method" if parent_class else "function"
+                extract_node(node, chunk_type, parent_class)
+
+            # Check for classes
+            elif node.type in class_types:
+                extract_node(node, "class")
+
+            # Recurse to children
+            for child in node.children:
+                walk_tree(child)
+
+        walk_tree(tree.root_node)
+
+        # Sort by line number
+        chunks.sort(key=lambda c: c.line_start)
 
         return chunks
 

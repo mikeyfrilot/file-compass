@@ -67,24 +67,110 @@ class Embedder:
         """
         Generate embedding for a single text (document/file content).
 
+        Uses chunk averaging for long texts per 2026 best practices:
+        - Ollama limits nomic-embed-text to 2048 tokens (not 8192)
+        - Split long texts, embed chunks, weighted-average results
+
         Args:
             text: Text to embed
 
         Returns:
             numpy array of shape (dim,)
         """
+        # Ollama's actual limit is ~2048 tokens, not 8192
+        # Conservative char limit: ~1500 chars ≈ 400-500 tokens (safe margin)
+        MAX_CHARS = 1500
+
+        if len(text) <= MAX_CHARS:
+            return await self._embed_single(text)
+
+        # Chunk averaging for long texts (OpenAI Cookbook best practice)
+        chunks = self._split_into_chunks(text, MAX_CHARS, overlap=100)
+        embeddings = []
+        weights = []
+
+        for chunk in chunks:
+            emb = await self._embed_single(chunk)
+            embeddings.append(emb)
+            weights.append(len(chunk))  # Weight by chunk size
+
+        # Weighted average
+        weights = np.array(weights, dtype=np.float32)
+        weights = weights / weights.sum()
+
+        avg_embedding = np.zeros_like(embeddings[0])
+        for emb, w in zip(embeddings, weights):
+            avg_embedding += w * emb
+
+        # Normalize final result
+        norm = np.linalg.norm(avg_embedding)
+        if norm > 0:
+            avg_embedding = avg_embedding / norm
+
+        return avg_embedding
+
+    def _split_into_chunks(self, text: str, max_chars: int, overlap: int = 100) -> list:
+        """Split text into overlapping chunks."""
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = start + max_chars
+            chunk = text[start:end]
+            if chunk.strip():
+                chunks.append(chunk)
+            start = end - overlap
+            if start < 0:
+                start = 0
+            if end >= len(text):
+                break
+        return chunks if chunks else [text[:max_chars]]
+
+    async def _embed_single(self, text: str, max_retries: int = 3) -> np.ndarray:
+        """Embed a single short text chunk with retry logic."""
         client = await self._get_client()
 
         # Document prefix for retrieval (nomic-embed-text recommendation)
         prefixed_text = f"search_document: {text}"
 
-        response = await client.post(
-            "/api/embed",
-            json={
-                "model": self.model,
-                "input": prefixed_text
-            }
-        )
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                response = await client.post(
+                    "/api/embed",
+                    json={
+                        "model": self.model,
+                        "input": prefixed_text
+                    }
+                )
+
+                if response.status_code == 200:
+                    break
+                elif response.status_code >= 500:
+                    # Server error - retry
+                    last_error = RuntimeError(f"Server error {response.status_code}: {response.text}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1.0 * (attempt + 1))  # Exponential backoff
+                        continue
+                else:
+                    # Client error - don't retry
+                    raise RuntimeError(f"Embedding failed: {response.text}")
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    logger.warning(f"Embedding timeout, retry {attempt + 1}/{max_retries}")
+                    await asyncio.sleep(1.0 * (attempt + 1))
+                    continue
+                raise RuntimeError(f"Embedding timeout after {max_retries} retries") from e
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    logger.warning(f"Connection error, retry {attempt + 1}/{max_retries}")
+                    await asyncio.sleep(1.0 * (attempt + 1))
+                    continue
+                raise RuntimeError(f"Cannot connect to Ollama at {self.base_url}") from e
+        else:
+            # All retries exhausted
+            raise last_error or RuntimeError("Embedding failed after retries")
 
         if response.status_code != 200:
             raise RuntimeError(f"Embedding failed: {response.text}")
