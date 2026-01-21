@@ -4,8 +4,8 @@
 
 **Semantic file search for AI workstations using HNSW vector indexing**
 
-[![Tests](https://img.shields.io/badge/tests-298%20passed-brightgreen?logo=pytest&logoColor=white)]()
-[![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen?logo=codecov&logoColor=white)]()
+[![CI](https://github.com/mikeyfrilot/file-compass/actions/workflows/ci.yml/badge.svg)](https://github.com/mikeyfrilot/file-compass/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/mikeyfrilot/file-compass/graph/badge.svg)](https://codecov.io/gh/mikeyfrilot/file-compass)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/mikeyfrilot/file-compass?style=social)](https://github.com/mikeyfrilot/file-compass)
