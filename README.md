@@ -1,28 +1,68 @@
+<div align="center">
+
 # File Compass
 
-Semantic file search for AI workstations using HNSW vector indexing and local embeddings.
+**Semantic file search for AI workstations using HNSW vector indexing**
 
-[![Tests](https://img.shields.io/badge/tests-298%20passed-brightgreen)]()
-[![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen)]()
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)]()
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-298%20passed-brightgreen?logo=pytest&logoColor=white)]()
+[![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen?logo=codecov&logoColor=white)]()
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/mikeyfrilot/file-compass?style=social)](https://github.com/mikeyfrilot/file-compass)
+
+*Find files by describing what you're looking for, not just by name*
+
+[Installation](#installation) • [Quick Start](#quick-start) • [MCP Server](#mcp-server) • [How It Works](#how-it-works) • [Contributing](#contributing)
+
+</div>
+
+---
+
+## Why File Compass?
+
+| Problem | Solution |
+|---------|----------|
+| "Where's that database connection file?" | `file-compass search "database connection handling"` |
+| Keyword search misses semantic matches | Vector embeddings understand meaning |
+| Slow search across large codebases | HNSW index: <100ms for 10K+ files |
+| Need to integrate with AI assistants | MCP server for Claude Code |
+
+<!--
+## Demo
+
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="File Compass Demo" width="600">
+</p>
+-->
+
+## Quick Start
+
+```bash
+# Install
+git clone https://github.com/mikeyfrilot/file-compass.git
+cd file-compass && pip install -e .
+
+# Pull embedding model
+ollama pull nomic-embed-text
+
+# Index your code
+file-compass index -d "C:/Projects"
+
+# Search semantically
+file-compass search "authentication middleware"
+```
 
 ## Features
 
-- **Semantic Search**: Find files by describing what you're looking for, not just keywords
-- **Quick Search**: Instant filename and symbol search (no embedding required)
-- **Multi-Language AST Parsing**: Tree-sitter support for Python, JavaScript, TypeScript, Rust, Go
-- **Result Explanations**: Understand why each result matched your query
-- **Local Embeddings**: Uses Ollama with nomic-embed-text (no API keys needed)
-- **Fast Search**: HNSW indexing for sub-second queries across thousands of files
-- **Git-Aware**: Optionally filter to only git-tracked files
-- **MCP Server**: Integrates with Claude Code and other MCP clients
-- **Security Hardened**: Input validation, path traversal protection, sanitized errors
-
-## Requirements
-
-- Python 3.10+
-- [Ollama](https://ollama.com/) with `nomic-embed-text` model
+- **Semantic Search** - Find files by describing what you're looking for
+- **Quick Search** - Instant filename/symbol search (no embedding required)
+- **Multi-Language AST** - Tree-sitter support for Python, JS, TS, Rust, Go
+- **Result Explanations** - Understand why each result matched
+- **Local Embeddings** - Uses Ollama (no API keys needed)
+- **Fast Search** - HNSW indexing for sub-second queries
+- **Git-Aware** - Optionally filter to git-tracked files only
+- **MCP Server** - Integrates with Claude Code and other MCP clients
+- **Security Hardened** - Input validation, path traversal protection
 
 ## Installation
 
@@ -43,9 +83,14 @@ pip install -e .
 ollama pull nomic-embed-text
 ```
 
-## Quick Start
+### Requirements
 
-### 1. Build the Index
+- Python 3.10+
+- [Ollama](https://ollama.com/) with `nomic-embed-text` model
+
+## Usage
+
+### Build the Index
 
 ```bash
 # Index a directory
@@ -55,7 +100,7 @@ file-compass index -d "C:/Projects"
 file-compass index -d "C:/Projects" "D:/Code"
 ```
 
-### 2. Search Files
+### Search Files
 
 ```bash
 # Semantic search
@@ -68,14 +113,14 @@ file-compass search "training loop" --types python
 file-compass search "API endpoints" --git-only
 ```
 
-### 3. Quick Search (No Embeddings Required)
+### Quick Search (No Embeddings)
 
 ```bash
 # Search by filename or symbol name
 file-compass scan -d "C:/Projects"  # Build quick index
 ```
 
-### 4. Check Status
+### Check Status
 
 ```bash
 file-compass status
@@ -89,13 +134,13 @@ File Compass includes an MCP server for integration with Claude Code and other A
 
 | Tool | Description |
 |------|-------------|
-| `file_search` | Semantic search with explanations for why results matched |
-| `file_preview` | Get visual code preview with syntax highlighting |
-| `file_quick_search` | Fast filename/symbol search (no embedding required) |
+| `file_search` | Semantic search with explanations |
+| `file_preview` | Code preview with syntax highlighting |
+| `file_quick_search` | Fast filename/symbol search |
 | `file_quick_index_build` | Build the quick search index |
-| `file_actions` | Perform actions: context, usages, related, history, symbols |
+| `file_actions` | Context, usages, related, history, symbols |
 | `file_index_status` | Check index statistics |
-| `file_index_scan` | Build or rebuild the full semantic index |
+| `file_index_scan` | Build or rebuild the full index |
 
 ### Claude Code Integration
 
@@ -115,63 +160,60 @@ Add to your `claude_desktop_config.json`:
 
 ## Configuration
 
-Configuration is managed via environment variables or the `FileCompassConfig` class:
-
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `FILE_COMPASS_DIRECTORIES` | `F:/AI` | Comma-separated directories to index |
+| `FILE_COMPASS_DIRECTORIES` | `F:/AI` | Comma-separated directories |
 | `FILE_COMPASS_OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
-| `FILE_COMPASS_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model name |
+| `FILE_COMPASS_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
 
 ## How It Works
 
-1. **Scanning**: Discovers files matching configured extensions, respecting `.gitignore`
-2. **Chunking**: Splits files into semantic pieces:
-   - Python/JS/TS/Rust/Go: AST-aware via tree-sitter (functions, classes, methods)
+1. **Scanning** - Discovers files matching configured extensions, respects `.gitignore`
+2. **Chunking** - Splits files into semantic pieces:
+   - Python/JS/TS/Rust/Go: AST-aware via tree-sitter (functions, classes)
    - Markdown: Heading-based sections
    - JSON/YAML: Top-level keys
    - Other: Sliding window with overlap
-3. **Embedding**: Generates 768-dim vectors via Ollama's nomic-embed-text
-4. **Indexing**: Stores vectors in HNSW index, metadata in SQLite
-5. **Search**: Embeds query, finds nearest neighbors, returns ranked results with explanations
+3. **Embedding** - Generates 768-dim vectors via Ollama
+4. **Indexing** - Stores vectors in HNSW index, metadata in SQLite
+5. **Search** - Embeds query, finds nearest neighbors, returns ranked results
 
-## Project Structure
+## Performance
+
+| Metric | Value |
+|--------|-------|
+| Index Size | ~1KB per chunk |
+| Search Latency | <100ms for 10K+ chunks |
+| Quick Search | <10ms for filename/symbol |
+| Embedding Speed | ~3-4s per chunk (local) |
+
+## Architecture
 
 ```
 file-compass/
 ├── file_compass/
-│   ├── __init__.py      # Package init, default paths
-│   ├── config.py        # Configuration management
-│   ├── embedder.py      # Ollama embedding client with retry logic
-│   ├── scanner.py       # File discovery with gitignore support
-│   ├── chunker.py       # Multi-language AST chunking (tree-sitter)
+│   ├── __init__.py      # Package init
+│   ├── config.py        # Configuration
+│   ├── embedder.py      # Ollama client with retry
+│   ├── scanner.py       # File discovery
+│   ├── chunker.py       # Multi-language AST chunking
 │   ├── indexer.py       # HNSW + SQLite index
 │   ├── quick_index.py   # Fast filename/symbol search
-│   ├── explainer.py     # Result explanation generation
-│   ├── merkle.py        # Incremental update tracking
-│   ├── gateway.py       # MCP server with security hardening
-│   └── cli.py           # Command-line interface
+│   ├── explainer.py     # Result explanations
+│   ├── merkle.py        # Incremental updates
+│   ├── gateway.py       # MCP server
+│   └── cli.py           # CLI
 ├── tests/               # 298 tests, 91% coverage
 ├── pyproject.toml
-├── README.md
 └── LICENSE
 ```
 
 ## Security
 
-File Compass includes several security measures:
-
-- **Input Validation**: All MCP tool inputs are validated (length limits, type checks)
-- **Path Traversal Protection**: Files outside allowed directories cannot be accessed
-- **SQL Injection Prevention**: All database queries use parameterized statements
-- **Error Sanitization**: Internal errors are not exposed to clients
-
-## Performance
-
-- **Index Size**: ~1KB per chunk (embedding + metadata)
-- **Search Latency**: <100ms for 10K+ chunks
-- **Quick Search**: <10ms for filename/symbol search
-- **Embedding Speed**: ~3-4 seconds per chunk (sequential, local)
+- **Input Validation** - All MCP inputs are validated
+- **Path Traversal Protection** - Files outside allowed directories blocked
+- **SQL Injection Prevention** - Parameterized queries only
+- **Error Sanitization** - Internal errors not exposed
 
 ## Development
 
@@ -182,9 +224,18 @@ pytest tests/ -v
 # Run with coverage
 pytest tests/ --cov=file_compass --cov-report=term-missing
 
-# Type checking (optional)
+# Type checking
 mypy file_compass/
 ```
+
+## Related Projects
+
+Part of the **Compass Suite** for AI-powered development:
+
+- [Tool Compass](https://github.com/mikeyfrilot/tool-compass) - Semantic MCP tool discovery
+- [Integradio](https://github.com/mikeyfrilot/integradio) - Vector-embedded Gradio components
+- [Backpropagate](https://github.com/mikeyfrilot/backpropagate) - Headless LLM fine-tuning
+- [Comfy Headless](https://github.com/mikeyfrilot/comfy-headless) - ComfyUI without the complexity
 
 ## License
 
@@ -196,3 +247,11 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [hnswlib](https://github.com/nmslib/hnswlib) for fast vector search
 - [nomic-embed-text](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5) for embeddings
 - [tree-sitter](https://tree-sitter.github.io/) for multi-language AST parsing
+
+---
+
+<div align="center">
+
+**[Documentation](https://github.com/mikeyfrilot/file-compass#readme)** • **[Issues](https://github.com/mikeyfrilot/file-compass/issues)** • **[Discussions](https://github.com/mikeyfrilot/file-compass/discussions)**
+
+</div>
