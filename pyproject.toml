@@ -39,9 +39,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mikeyfrilot/file-compass"
-Repository = "https://github.com/mikeyfrilot/file-compass"
-Issues = "https://github.com/mikeyfrilot/file-compass/issues"
+Homepage = "https://github.com/mcp-tool-shop/file-compass"
+Repository = "https://github.com/mcp-tool-shop/file-compass.git"
+Issues = "https://github.com/mcp-tool-shop/file-compass/issues"
+Changelog = "https://github.com/mcp-tool-shop/file-compass/blob/main/CHANGELOG.md"
 
 [project.scripts]
 file-compass = "file_compass.cli:main"

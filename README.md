@@ -4,11 +4,11 @@
 
 **Semantic file search for AI workstations using HNSW vector indexing**
 
-[![CI](https://github.com/mikeyfrilot/file-compass/actions/workflows/ci.yml/badge.svg)](https://github.com/mikeyfrilot/file-compass/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/mikeyfrilot/file-compass/graph/badge.svg)](https://codecov.io/gh/mikeyfrilot/file-compass)
+[![CI](https://github.com/mcp-tool-shop/file-compass/actions/workflows/ci.yml/badge.svg)](https://github.com/mcp-tool-shop/file-compass/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/mcp-tool-shop/file-compass/graph/badge.svg)](https://codecov.io/gh/mcp-tool-shop/file-compass)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/mikeyfrilot/file-compass?style=social)](https://github.com/mikeyfrilot/file-compass)
+[![GitHub stars](https://img.shields.io/github/stars/mcp-tool-shop/file-compass?style=social)](https://github.com/mcp-tool-shop/file-compass)
 
 *Find files by describing what you're looking for, not just by name*
 
@@ -39,7 +39,7 @@
 
 ```bash
 # Install
-git clone https://github.com/mikeyfrilot/file-compass.git
+git clone https://github.com/mcp-tool-shop/file-compass.git
 cd file-compass && pip install -e .
 
 # Pull embedding model
@@ -68,7 +68,7 @@ file-compass search "authentication middleware"
 
 ```bash
 # Clone the repository
-git clone https://github.com/mikeyfrilot/file-compass.git
+git clone https://github.com/mcp-tool-shop/file-compass.git
 cd file-compass
 
 # Create virtual environment
@@ -232,10 +232,10 @@ mypy file_compass/
 
 Part of the **Compass Suite** for AI-powered development:
 
-- [Tool Compass](https://github.com/mikeyfrilot/tool-compass) - Semantic MCP tool discovery
-- [Integradio](https://github.com/mikeyfrilot/integradio) - Vector-embedded Gradio components
-- [Backpropagate](https://github.com/mikeyfrilot/backpropagate) - Headless LLM fine-tuning
-- [Comfy Headless](https://github.com/mikeyfrilot/comfy-headless) - ComfyUI without the complexity
+- [Tool Compass](https://github.com/mcp-tool-shop/tool-compass) - Semantic MCP tool discovery
+- [Integradio](https://github.com/mcp-tool-shop/integradio) - Vector-embedded Gradio components
+- [Backpropagate](https://github.com/mcp-tool-shop/backpropagate) - Headless LLM fine-tuning
+- [Comfy Headless](https://github.com/mcp-tool-shop/comfy-headless) - ComfyUI without the complexity
 
 ## License
 
@@ -252,6 +252,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**[Documentation](https://github.com/mikeyfrilot/file-compass#readme)** • **[Issues](https://github.com/mikeyfrilot/file-compass/issues)** • **[Discussions](https://github.com/mikeyfrilot/file-compass/discussions)**
+**[Documentation](https://github.com/mcp-tool-shop/file-compass#readme)** • **[Issues](https://github.com/mcp-tool-shop/file-compass/issues)** • **[Discussions](https://github.com/mcp-tool-shop/file-compass/discussions)**
 
 </div>
