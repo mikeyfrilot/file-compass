@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 
 from file_compass.indexer import FileIndex, SearchResult, get_index
+from file_compass.scanner import ScannedFile
 
 
 @pytest.fixture
@@ -1069,5 +1070,3 @@ class TestIncrementalUpdate:
         assert stats["files_removed"] == 1
 
 
-# Need to import ScannedFile for the new tests
-from file_compass.scanner import ScannedFile
