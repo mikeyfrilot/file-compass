@@ -4,11 +4,12 @@ Handles embedding generation via Ollama's nomic-embed-text model.
 Adapted from Tool Compass embedder.
 """
 
-import httpx
-import numpy as np
-from typing import List, Optional
 import asyncio
 import logging
+from typing import List, Optional
+
+import httpx
+import numpy as np
 
 from .config import get_config
 
@@ -25,7 +26,7 @@ class Embedder:
         self,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
-        timeout: float = 120.0  # Longer timeout for batch operations
+        timeout: float = 120.0,  # Longer timeout for batch operations
     ):
         config = get_config()
         self.base_url = base_url or config.ollama_url
@@ -37,10 +38,7 @@ class Embedder:
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create async HTTP client."""
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                base_url=self.base_url,
-                timeout=self.timeout
-            )
+            self._client = httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout)
         return self._client
 
     async def close(self):
@@ -136,18 +134,16 @@ class Embedder:
         for attempt in range(max_retries):
             try:
                 response = await client.post(
-                    "/api/embed",
-                    json={
-                        "model": self.model,
-                        "input": prefixed_text
-                    }
+                    "/api/embed", json={"model": self.model, "input": prefixed_text}
                 )
 
                 if response.status_code == 200:
                     break
                 elif response.status_code >= 500:
                     # Server error - retry
-                    last_error = RuntimeError(f"Server error {response.status_code}: {response.text}")
+                    last_error = RuntimeError(
+                        f"Server error {response.status_code}: {response.text}"
+                    )
                     if attempt < max_retries - 1:
                         await asyncio.sleep(1.0 * (attempt + 1))  # Exponential backoff
                         continue
@@ -202,11 +198,7 @@ class Embedder:
         prefixed_query = f"search_query: {query}"
 
         response = await client.post(
-            "/api/embed",
-            json={
-                "model": self.model,
-                "input": prefixed_query
-            }
+            "/api/embed", json={"model": self.model, "input": prefixed_query}
         )
 
         if response.status_code != 200:
@@ -223,10 +215,7 @@ class Embedder:
         return embedding
 
     async def embed_batch(
-        self,
-        texts: List[str],
-        batch_size: int = 1,
-        show_progress: bool = False
+        self, texts: List[str], batch_size: int = 1, show_progress: bool = False
     ) -> np.ndarray:
         """
         Generate embeddings for multiple texts sequentially.
@@ -252,7 +241,7 @@ class Embedder:
             embeddings.append(embedding)
 
             if show_progress and (i + 1) % 5 == 0:
-                print(f"  Embedded {i + 1}/{total} chunks ({(i + 1)*100//total}%)")
+                print(f"  Embedded {i + 1}/{total} chunks ({(i + 1) * 100 // total}%)")
 
         if show_progress:
             print(f"  Embedded {total}/{total} chunks (100%)")

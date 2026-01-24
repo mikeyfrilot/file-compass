@@ -3,15 +3,14 @@ Tests for file_compass.cli module.
 Uses mocks to avoid actual indexing and searching.
 """
 
-import pytest
 import sys
-import tempfile
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
-from io import StringIO
 
-from file_compass.cli import cmd_index, cmd_search, cmd_status, cmd_scan, main
+import pytest
+
+from file_compass.cli import cmd_index, cmd_scan, cmd_search, cmd_status, main
 
 
 class TestCmdIndex:
@@ -22,17 +21,14 @@ class TestCmdIndex:
         args = MagicMock()
         args.directories = None
 
-        with patch('file_compass.cli.FileIndex') as MockIndex:
+        with patch("file_compass.cli.FileIndex") as MockIndex:
             mock_instance = MagicMock()
             MockIndex.return_value = mock_instance
 
             # Mock async build_index
             async def mock_build(**kwargs):
-                return {
-                    "files_indexed": 10,
-                    "chunks_indexed": 50,
-                    "duration_seconds": 1.5
-                }
+                return {"files_indexed": 10, "chunks_indexed": 50, "duration_seconds": 1.5}
+
             mock_instance.build_index = mock_build
             mock_instance.close = AsyncMock()
 
@@ -46,7 +42,7 @@ class TestCmdIndex:
         args = MagicMock()
         args.directories = ["/test/dir1", "/test/dir2"]
 
-        with patch('file_compass.cli.FileIndex') as MockIndex:
+        with patch("file_compass.cli.FileIndex") as MockIndex:
             mock_instance = MagicMock()
             MockIndex.return_value = mock_instance
 
@@ -74,12 +70,13 @@ class TestCmdSearch:
         args.git_only = False
         args.min_relevance = 0.3
 
-        with patch('file_compass.cli.get_index') as mock_get_index:
+        with patch("file_compass.cli.get_index") as mock_get_index:
             mock_index = MagicMock()
             mock_get_index.return_value = mock_index
 
             async def mock_search(**kwargs):
                 return []
+
             mock_index.search = mock_search
             mock_index.close = AsyncMock()
 
@@ -112,16 +109,17 @@ class TestCmdSearch:
                 preview="def test_func():",
                 relevance=0.85,
                 modified_at=datetime.now(),
-                git_tracked=True
+                git_tracked=True,
             )
         ]
 
-        with patch('file_compass.cli.get_index') as mock_get_index:
+        with patch("file_compass.cli.get_index") as mock_get_index:
             mock_index = MagicMock()
             mock_get_index.return_value = mock_index
 
             async def mock_search(**kwargs):
                 return mock_results
+
             mock_index.search = mock_search
             mock_index.close = AsyncMock()
 
@@ -142,7 +140,7 @@ class TestCmdSearch:
         args.git_only = False
         args.min_relevance = 0.3
 
-        with patch('file_compass.cli.get_index') as mock_get_index:
+        with patch("file_compass.cli.get_index") as mock_get_index:
             mock_index = MagicMock()
             mock_get_index.return_value = mock_index
 
@@ -150,6 +148,7 @@ class TestCmdSearch:
                 # Verify types were parsed correctly
                 assert kwargs.get("file_types") == ["python", "markdown"]
                 return []
+
             mock_index.search = mock_search
             mock_index.close = AsyncMock()
 
@@ -161,7 +160,7 @@ class TestCmdStatus:
 
     def test_cmd_status_basic(self, capsys):
         """Test status command output."""
-        with patch('file_compass.cli.get_index') as mock_get_index:
+        with patch("file_compass.cli.get_index") as mock_get_index:
             mock_index = MagicMock()
             mock_get_index.return_value = mock_index
 
@@ -170,11 +169,7 @@ class TestCmdStatus:
                 "chunks_indexed": 500,
                 "index_size_mb": 25.5,
                 "last_build": "2024-01-15T10:30:00",
-                "file_types": {
-                    "python": 50,
-                    "markdown": 30,
-                    "json": 20
-                }
+                "file_types": {"python": 50, "markdown": 30, "json": 20},
             }
 
             cmd_status(MagicMock())
@@ -188,7 +183,7 @@ class TestCmdStatus:
 
     def test_cmd_status_empty_index(self, capsys):
         """Test status with empty index."""
-        with patch('file_compass.cli.get_index') as mock_get_index:
+        with patch("file_compass.cli.get_index") as mock_get_index:
             mock_index = MagicMock()
             mock_get_index.return_value = mock_index
 
@@ -197,7 +192,7 @@ class TestCmdStatus:
                 "chunks_indexed": 0,
                 "index_size_mb": 0,
                 "last_build": None,
-                "file_types": {}
+                "file_types": {},
             }
 
             cmd_status(MagicMock())
@@ -226,7 +221,7 @@ class TestCmdScan:
                 size_bytes=100,
                 modified_at=datetime.now(),
                 content_hash="abc",
-                is_git_tracked=True
+                is_git_tracked=True,
             ),
             ScannedFile(
                 path=Path("/test/file2.md"),
@@ -235,11 +230,11 @@ class TestCmdScan:
                 size_bytes=50,
                 modified_at=datetime.now(),
                 content_hash="def",
-                is_git_tracked=False
-            )
+                is_git_tracked=False,
+            ),
         ]
 
-        with patch('file_compass.cli.FileScanner') as MockScanner:
+        with patch("file_compass.cli.FileScanner") as MockScanner:
             mock_scanner = MagicMock()
             MockScanner.return_value = mock_scanner
             mock_scanner.scan_all.return_value = iter(mock_files)
@@ -267,11 +262,11 @@ class TestCmdScan:
                 size_bytes=100,
                 modified_at=datetime.now(),
                 content_hash="abc",
-                is_git_tracked=True
+                is_git_tracked=True,
             )
         ]
 
-        with patch('file_compass.cli.FileScanner') as MockScanner:
+        with patch("file_compass.cli.FileScanner") as MockScanner:
             mock_scanner = MagicMock()
             MockScanner.return_value = mock_scanner
             mock_scanner.scan_all.return_value = iter(mock_files)
@@ -299,12 +294,12 @@ class TestCmdScan:
                 size_bytes=100,
                 modified_at=datetime.now(),
                 content_hash=f"hash{i}",
-                is_git_tracked=True
+                is_git_tracked=True,
             )
             for i in range(60)
         ]
 
-        with patch('file_compass.cli.FileScanner') as MockScanner:
+        with patch("file_compass.cli.FileScanner") as MockScanner:
             mock_scanner = MagicMock()
             MockScanner.return_value = mock_scanner
             mock_scanner.scan_all.return_value = iter(mock_files)
@@ -322,7 +317,7 @@ class TestMain:
 
     def test_main_no_command(self, capsys, monkeypatch):
         """Test main with no command shows help."""
-        monkeypatch.setattr(sys, 'argv', ['file-compass'])
+        monkeypatch.setattr(sys, "argv", ["file-compass"])
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -332,49 +327,49 @@ class TestMain:
 
     def test_main_index_command(self, monkeypatch):
         """Test main dispatches to index command."""
-        monkeypatch.setattr(sys, 'argv', ['file-compass', 'index', '-d', '/test'])
+        monkeypatch.setattr(sys, "argv", ["file-compass", "index", "-d", "/test"])
 
-        with patch('file_compass.cli.cmd_index') as mock_cmd:
+        with patch("file_compass.cli.cmd_index") as mock_cmd:
             mock_cmd.return_value = 0
-            result = main()
+            main()
 
             mock_cmd.assert_called_once()
 
     def test_main_search_command(self, monkeypatch):
         """Test main dispatches to search command."""
-        monkeypatch.setattr(sys, 'argv', ['file-compass', 'search', 'test query'])
+        monkeypatch.setattr(sys, "argv", ["file-compass", "search", "test query"])
 
-        with patch('file_compass.cli.cmd_search') as mock_cmd:
+        with patch("file_compass.cli.cmd_search") as mock_cmd:
             mock_cmd.return_value = 0
-            result = main()
+            main()
 
             mock_cmd.assert_called_once()
 
     def test_main_status_command(self, monkeypatch):
         """Test main dispatches to status command."""
-        monkeypatch.setattr(sys, 'argv', ['file-compass', 'status'])
+        monkeypatch.setattr(sys, "argv", ["file-compass", "status"])
 
-        with patch('file_compass.cli.cmd_status') as mock_cmd:
+        with patch("file_compass.cli.cmd_status") as mock_cmd:
             mock_cmd.return_value = 0
-            result = main()
+            main()
 
             mock_cmd.assert_called_once()
 
     def test_main_scan_command(self, monkeypatch):
         """Test main dispatches to scan command."""
-        monkeypatch.setattr(sys, 'argv', ['file-compass', 'scan', '-d', '/test'])
+        monkeypatch.setattr(sys, "argv", ["file-compass", "scan", "-d", "/test"])
 
-        with patch('file_compass.cli.cmd_scan') as mock_cmd:
+        with patch("file_compass.cli.cmd_scan") as mock_cmd:
             mock_cmd.return_value = 0
-            result = main()
+            main()
 
             mock_cmd.assert_called_once()
 
     def test_main_scan_verbose(self, monkeypatch):
         """Test main with verbose flag."""
-        monkeypatch.setattr(sys, 'argv', ['file-compass', 'scan', '-v'])
+        monkeypatch.setattr(sys, "argv", ["file-compass", "scan", "-v"])
 
-        with patch('file_compass.cli.cmd_scan') as mock_cmd:
+        with patch("file_compass.cli.cmd_scan") as mock_cmd:
             mock_cmd.return_value = 0
             main()
 
@@ -384,23 +379,33 @@ class TestMain:
 
     def test_main_search_with_options(self, monkeypatch):
         """Test main search with all options."""
-        monkeypatch.setattr(sys, 'argv', [
-            'file-compass', 'search', 'query',
-            '-k', '20',
-            '-t', 'python',
-            '-d', '/test',
-            '--git-only',
-            '--min-relevance', '0.5'
-        ])
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "file-compass",
+                "search",
+                "query",
+                "-k",
+                "20",
+                "-t",
+                "python",
+                "-d",
+                "/test",
+                "--git-only",
+                "--min-relevance",
+                "0.5",
+            ],
+        )
 
-        with patch('file_compass.cli.cmd_search') as mock_cmd:
+        with patch("file_compass.cli.cmd_search") as mock_cmd:
             mock_cmd.return_value = 0
             main()
 
             args = mock_cmd.call_args[0][0]
-            assert args.query == 'query'
+            assert args.query == "query"
             assert args.top_k == 20
-            assert args.types == 'python'
-            assert args.directory == '/test'
+            assert args.types == "python"
+            assert args.directory == "/test"
             assert args.git_only is True
             assert args.min_relevance == 0.5

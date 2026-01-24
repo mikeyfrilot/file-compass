@@ -2,11 +2,12 @@
 Tests for file_compass.quick_index module.
 """
 
-import pytest
 import tempfile
-from pathlib import Path
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from file_compass.quick_index import QuickIndex, QuickResult
 from file_compass.scanner import ScannedFile
@@ -66,7 +67,7 @@ class Helper {
                 modified_at=datetime.now(),
                 content_hash="abc123",
                 git_repo=None,
-                is_git_tracked=False
+                is_git_tracked=False,
             ),
             ScannedFile(
                 path=self.test_files_dir / "helpers.js",
@@ -76,7 +77,7 @@ class Helper {
                 modified_at=datetime.now(),
                 content_hash="def456",
                 git_repo=None,
-                is_git_tracked=False
+                is_git_tracked=False,
             ),
             ScannedFile(
                 path=self.test_files_dir / "config.json",
@@ -86,13 +87,14 @@ class Helper {
                 modified_at=datetime.now(),
                 content_hash="ghi789",
                 git_repo=None,
-                is_git_tracked=False
+                is_git_tracked=False,
             ),
         ]
 
     def teardown_method(self):
         """Clean up test files."""
         import shutil
+
         self.index.close()
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
@@ -104,10 +106,9 @@ class Helper {
     async def test_build_quick_index(self):
         """Test building quick index."""
         # Mock the scanner to return our test files
-        with patch.object(self.index.scanner, 'scan_all', self._mock_scan_all):
+        with patch.object(self.index.scanner, "scan_all", self._mock_scan_all):
             stats = await self.index.build_quick_index(
-                directories=[str(self.test_files_dir)],
-                extract_symbols=True
+                directories=[str(self.test_files_dir)], extract_symbols=True
             )
 
         assert stats["files_indexed"] == 3
@@ -117,10 +118,8 @@ class Helper {
     @pytest.mark.asyncio
     async def test_search_by_filename(self):
         """Test searching by filename."""
-        with patch.object(self.index.scanner, 'scan_all', self._mock_scan_all):
-            await self.index.build_quick_index(
-                directories=[str(self.test_files_dir)]
-            )
+        with patch.object(self.index.scanner, "scan_all", self._mock_scan_all):
+            await self.index.build_quick_index(directories=[str(self.test_files_dir)])
 
         results = self.index.search("utils")
 
@@ -130,10 +129,8 @@ class Helper {
     @pytest.mark.asyncio
     async def test_search_by_symbol(self):
         """Test searching by function/class name."""
-        with patch.object(self.index.scanner, 'scan_all', self._mock_scan_all):
-            await self.index.build_quick_index(
-                directories=[str(self.test_files_dir)]
-            )
+        with patch.object(self.index.scanner, "scan_all", self._mock_scan_all):
+            await self.index.build_quick_index(directories=[str(self.test_files_dir)])
 
         results = self.index.search("calculate")
 
@@ -145,10 +142,8 @@ class Helper {
     @pytest.mark.asyncio
     async def test_search_class(self):
         """Test searching for class names."""
-        with patch.object(self.index.scanner, 'scan_all', self._mock_scan_all):
-            await self.index.build_quick_index(
-                directories=[str(self.test_files_dir)]
-            )
+        with patch.object(self.index.scanner, "scan_all", self._mock_scan_all):
+            await self.index.build_quick_index(directories=[str(self.test_files_dir)])
 
         results = self.index.search("DataProcessor")
 
@@ -158,10 +153,8 @@ class Helper {
     @pytest.mark.asyncio
     async def test_search_with_file_type_filter(self):
         """Test filtering by file type."""
-        with patch.object(self.index.scanner, 'scan_all', self._mock_scan_all):
-            await self.index.build_quick_index(
-                directories=[str(self.test_files_dir)]
-            )
+        with patch.object(self.index.scanner, "scan_all", self._mock_scan_all):
+            await self.index.build_quick_index(directories=[str(self.test_files_dir)])
 
         # Search only Python files
         results = self.index.search("format", file_types=["python"])
@@ -173,10 +166,8 @@ class Helper {
     @pytest.mark.asyncio
     async def test_search_line_numbers(self):
         """Test that symbol search returns line numbers."""
-        with patch.object(self.index.scanner, 'scan_all', self._mock_scan_all):
-            await self.index.build_quick_index(
-                directories=[str(self.test_files_dir)]
-            )
+        with patch.object(self.index.scanner, "scan_all", self._mock_scan_all):
+            await self.index.build_quick_index(directories=[str(self.test_files_dir)])
 
         results = self.index.search("calculate_total")
 
@@ -188,10 +179,8 @@ class Helper {
     @pytest.mark.asyncio
     async def test_get_status(self):
         """Test getting index status."""
-        with patch.object(self.index.scanner, 'scan_all', self._mock_scan_all):
-            await self.index.build_quick_index(
-                directories=[str(self.test_files_dir)]
-            )
+        with patch.object(self.index.scanner, "scan_all", self._mock_scan_all):
+            await self.index.build_quick_index(directories=[str(self.test_files_dir)])
 
         status = self.index.get_status()
 
@@ -226,10 +215,8 @@ class Helper {
     @pytest.mark.asyncio
     async def test_search_deduplicates(self):
         """Test that search results are deduplicated."""
-        with patch.object(self.index.scanner, 'scan_all', self._mock_scan_all):
-            await self.index.build_quick_index(
-                directories=[str(self.test_files_dir)]
-            )
+        with patch.object(self.index.scanner, "scan_all", self._mock_scan_all):
+            await self.index.build_quick_index(directories=[str(self.test_files_dir)])
 
         results = self.index.search("format")
 
@@ -243,10 +230,8 @@ class Helper {
     @pytest.mark.asyncio
     async def test_search_scoring(self):
         """Test that exact matches score higher."""
-        with patch.object(self.index.scanner, 'scan_all', self._mock_scan_all):
-            await self.index.build_quick_index(
-                directories=[str(self.test_files_dir)]
-            )
+        with patch.object(self.index.scanner, "scan_all", self._mock_scan_all):
+            await self.index.build_quick_index(directories=[str(self.test_files_dir)])
 
         results = self.index.search("utils")
 
@@ -264,7 +249,7 @@ class Helper {
             match_text="function my_func",
             line_number=42,
             modified_at=datetime.now(),
-            score=0.85
+            score=0.85,
         )
 
         assert result.path == "/test/file.py"
@@ -283,6 +268,7 @@ class TestQuickIndexEdgeCases:
 
     def teardown_method(self):
         import shutil
+
         self.index.close()
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
@@ -295,10 +281,19 @@ class TestQuickIndexEdgeCases:
         """Test search with no matches."""
         # Add a file manually to the index
         conn = self.index._get_conn()
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, modified_at, indexed_at)
             VALUES (?, ?, ?, ?, ?)
-        """, ("/test/foo.py", "foo.py", "python", datetime.now().isoformat(), datetime.now().isoformat()))
+        """,
+            (
+                "/test/foo.py",
+                "foo.py",
+                "python",
+                datetime.now().isoformat(),
+                datetime.now().isoformat(),
+            ),
+        )
         conn.commit()
 
         results = self.index.search("zzzznonexistent")
@@ -312,7 +307,7 @@ class TestQuickIndexEdgeCases:
     def test_extract_symbols_binary_file(self):
         """Test symbol extraction on binary file."""
         binary_file = Path(self.temp_dir) / "binary.py"
-        binary_file.write_bytes(b'\x00\x01\x02\x03')
+        binary_file.write_bytes(b"\x00\x01\x02\x03")
 
         symbols = self.index._extract_symbols_fast(binary_file)
         # Should not crash, may return empty or partial
@@ -321,10 +316,19 @@ class TestQuickIndexEdgeCases:
     def test_search_with_recent_days_invalid(self):
         """Test search handles invalid recent_days gracefully."""
         conn = self.index._get_conn()
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, modified_at, indexed_at)
             VALUES (?, ?, ?, ?, ?)
-        """, ("/test/foo.py", "foo.py", "python", datetime.now().isoformat(), datetime.now().isoformat()))
+        """,
+            (
+                "/test/foo.py",
+                "foo.py",
+                "python",
+                datetime.now().isoformat(),
+                datetime.now().isoformat(),
+            ),
+        )
         conn.commit()
 
         # Negative recent_days should be treated as None (no filter)
@@ -338,10 +342,19 @@ class TestQuickIndexEdgeCases:
     def test_search_with_recent_days_valid(self):
         """Test search with valid recent_days filter."""
         conn = self.index._get_conn()
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, modified_at, indexed_at)
             VALUES (?, ?, ?, ?, ?)
-        """, ("/test/recent.py", "recent.py", "python", datetime.now().isoformat(), datetime.now().isoformat()))
+        """,
+            (
+                "/test/recent.py",
+                "recent.py",
+                "python",
+                datetime.now().isoformat(),
+                datetime.now().isoformat(),
+            ),
+        )
         conn.commit()
 
         # Search with 7 day filter - recent file should be found
@@ -397,18 +410,45 @@ func (c *Config) GetName() string {
     def test_search_with_file_types_multiple(self):
         """Test search with multiple file type filters."""
         conn = self.index._get_conn()
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, modified_at, indexed_at)
             VALUES (?, ?, ?, ?, ?)
-        """, ("/test/app.py", "app.py", "python", datetime.now().isoformat(), datetime.now().isoformat()))
-        conn.execute("""
+        """,
+            (
+                "/test/app.py",
+                "app.py",
+                "python",
+                datetime.now().isoformat(),
+                datetime.now().isoformat(),
+            ),
+        )
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, modified_at, indexed_at)
             VALUES (?, ?, ?, ?, ?)
-        """, ("/test/app.js", "app.js", "javascript", datetime.now().isoformat(), datetime.now().isoformat()))
-        conn.execute("""
+        """,
+            (
+                "/test/app.js",
+                "app.js",
+                "javascript",
+                datetime.now().isoformat(),
+                datetime.now().isoformat(),
+            ),
+        )
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, modified_at, indexed_at)
             VALUES (?, ?, ?, ?, ?)
-        """, ("/test/app.rs", "app.rs", "rust", datetime.now().isoformat(), datetime.now().isoformat()))
+        """,
+            (
+                "/test/app.rs",
+                "app.rs",
+                "rust",
+                datetime.now().isoformat(),
+                datetime.now().isoformat(),
+            ),
+        )
         conn.commit()
 
         # Search only Python and JavaScript
@@ -421,10 +461,19 @@ func (c *Config) GetName() string {
     def test_close_and_reopen(self):
         """Test closing and reopening the index."""
         conn = self.index._get_conn()
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, modified_at, indexed_at)
             VALUES (?, ?, ?, ?, ?)
-        """, ("/test/test.py", "test.py", "python", datetime.now().isoformat(), datetime.now().isoformat()))
+        """,
+            (
+                "/test/test.py",
+                "test.py",
+                "python",
+                datetime.now().isoformat(),
+                datetime.now().isoformat(),
+            ),
+        )
         conn.commit()
 
         # Close the index

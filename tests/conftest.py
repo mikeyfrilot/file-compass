@@ -2,9 +2,10 @@
 Pytest configuration and fixtures for file-compass tests.
 """
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -34,7 +35,7 @@ class Calculator:
 @pytest.fixture
 def sample_markdown():
     """Sample Markdown content for testing."""
-    return '''
+    return """
 # Project Title
 
 A description of the project.
@@ -53,7 +54,7 @@ project.run()
 ## License
 
 MIT
-'''
+"""
 
 
 @pytest.fixture

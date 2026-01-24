@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
+
 @dataclass
 class FileCompassConfig:
     """Configuration for File Compass indexing and search."""
@@ -25,20 +26,49 @@ class FileCompassConfig:
     hnsw_space: str = "cosine"
 
     # File scanning
-    include_extensions: List[str] = field(default_factory=lambda: [
-        ".py", ".md", ".txt", ".json", ".yaml", ".yml",
-        ".toml", ".ini", ".cfg", ".ts", ".js", ".jsx", ".tsx",
-        ".html", ".css", ".sql", ".sh", ".ps1", ".bat"
-    ])
+    include_extensions: List[str] = field(
+        default_factory=lambda: [
+            ".py",
+            ".md",
+            ".txt",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".ini",
+            ".cfg",
+            ".ts",
+            ".js",
+            ".jsx",
+            ".tsx",
+            ".html",
+            ".css",
+            ".sql",
+            ".sh",
+            ".ps1",
+            ".bat",
+        ]
+    )
 
-    exclude_patterns: List[str] = field(default_factory=lambda: [
-        "**/venv/**", "**/venv_*/**", "**/.venv/**",
-        "**/node_modules/**", "**/site-packages/**",
-        "**/__pycache__/**", "**/.git/**", "**/.cache/**",
-        "**/build/**", "**/dist/**", "**/*.pyc",
-        "**/models/**/*.safetensors", "**/models/**/*.gguf",
-        "**/models/**/*.bin", "**/models/**/*.pt"
-    ])
+    exclude_patterns: List[str] = field(
+        default_factory=lambda: [
+            "**/venv/**",
+            "**/venv_*/**",
+            "**/.venv/**",
+            "**/node_modules/**",
+            "**/site-packages/**",
+            "**/__pycache__/**",
+            "**/.git/**",
+            "**/.cache/**",
+            "**/build/**",
+            "**/dist/**",
+            "**/*.pyc",
+            "**/models/**/*.safetensors",
+            "**/models/**/*.gguf",
+            "**/models/**/*.bin",
+            "**/models/**/*.pt",
+        ]
+    )
 
     # Chunking
     max_chunk_tokens: int = 500
@@ -81,6 +111,7 @@ class FileCompassConfig:
 
 # Global config instance
 _config: Optional[FileCompassConfig] = None
+
 
 def get_config() -> FileCompassConfig:
     """Get or create global config instance."""

@@ -3,15 +3,15 @@ File Compass - Scanner Module
 Discovers files for indexing with gitignore and pattern support.
 """
 
-import os
 import fnmatch
 import hashlib
-import subprocess
-from pathlib import Path
-from dataclasses import dataclass
-from typing import List, Optional, Iterator, Set
-from datetime import datetime
 import logging
+import os
+import subprocess
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Iterator, List, Optional, Set
 
 from .config import get_config
 
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ScannedFile:
     """Represents a discovered file for indexing."""
+
     path: Path
     relative_path: str
     file_type: str
@@ -41,7 +42,7 @@ class FileScanner:
         self,
         directories: Optional[List[str]] = None,
         include_extensions: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None
+        exclude_patterns: Optional[List[str]] = None,
     ):
         config = get_config()
         self.directories = [Path(d) for d in (directories or config.directories)]
@@ -102,11 +103,7 @@ class FileScanner:
         tracked = set()
         try:
             result = subprocess.run(
-                ["git", "ls-files"],
-                cwd=repo_root,
-                capture_output=True,
-                text=True,
-                timeout=30
+                ["git", "ls-files"], cwd=repo_root, capture_output=True, text=True, timeout=30
             )
             if result.returncode == 0:
                 for line in result.stdout.strip().split("\n"):
@@ -169,7 +166,8 @@ class FileScanner:
 
             # Filter directories in-place to skip excluded paths
             dirs[:] = [
-                d for d in dirs
+                d
+                for d in dirs
                 if not self._matches_exclude_pattern(root_path / d, directory)
                 and not d.startswith(".")
             ]
@@ -212,7 +210,7 @@ class FileScanner:
                     modified_at=datetime.fromtimestamp(stat.st_mtime),
                     content_hash=self._compute_hash(file_path),
                     git_repo=git_repo_str,
-                    is_git_tracked=is_tracked
+                    is_git_tracked=is_tracked,
                 )
 
     def scan_all(self) -> Iterator[ScannedFile]:
@@ -247,6 +245,7 @@ if __name__ == "__main__":
 
     # Count by type
     from collections import Counter
+
     types = Counter(f.file_type for f in files)
     print("\nBy type:")
     for t, c in types.most_common():

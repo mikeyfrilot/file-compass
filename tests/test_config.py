@@ -2,8 +2,6 @@
 Tests for file_compass.config module.
 """
 
-import pytest
-import os
 from pathlib import Path
 
 from file_compass.config import FileCompassConfig, get_config
@@ -38,6 +36,7 @@ class TestConfig:
 
         # Reset global config
         import file_compass.config as cfg
+
         cfg._config = None
 
         config = FileCompassConfig.from_env()
@@ -49,6 +48,7 @@ class TestConfig:
         """Test that get_config returns consistent config."""
         # Reset global config
         import file_compass.config as cfg
+
         cfg._config = None
 
         config1 = get_config()
@@ -97,6 +97,7 @@ class TestConfig:
         monkeypatch.setenv("FILE_COMPASS_DIRECTORIES", "/dir1;/dir2")
 
         import file_compass.config as cfg
+
         cfg._config = None
 
         config = FileCompassConfig.from_env()
@@ -107,6 +108,7 @@ class TestConfig:
         monkeypatch.setenv("FILE_COMPASS_DB_PATH", "/custom/db/path")
 
         import file_compass.config as cfg
+
         cfg._config = None
 
         config = FileCompassConfig.from_env()
@@ -117,6 +119,7 @@ class TestConfig:
         monkeypatch.setenv("FILE_COMPASS_EXCLUDE_PATTERNS", "custom_dir/**;*.bak")
 
         import file_compass.config as cfg
+
         cfg._config = None
 
         config = FileCompassConfig.from_env()
@@ -128,6 +131,7 @@ class TestConfig:
         monkeypatch.setenv("FILE_COMPASS_WATCH_ENABLED", "true")
 
         import file_compass.config as cfg
+
         cfg._config = None
 
         config = FileCompassConfig.from_env()
@@ -138,6 +142,7 @@ class TestConfig:
         monkeypatch.setenv("FILE_COMPASS_WATCH_ENABLED", "false")
 
         import file_compass.config as cfg
+
         cfg._config = None
 
         config = FileCompassConfig.from_env()

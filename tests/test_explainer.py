@@ -2,16 +2,15 @@
 Tests for file_compass.explainer module.
 """
 
-import pytest
 import tempfile
 from pathlib import Path
 
 from file_compass.explainer import (
-    ResultExplainer,
-    VisualPreviewGenerator,
-    MatchReason,
     ExplainedResult,
-    VisualPreview
+    MatchReason,
+    ResultExplainer,
+    VisualPreview,
+    VisualPreviewGenerator,
 )
 
 
@@ -29,7 +28,7 @@ class TestResultExplainer:
             result_path="/project/embedder.py",
             chunk_name="generate_embedding",
             chunk_type="function",
-            relevance=0.85
+            relevance=0.85,
         )
 
         assert result.relevance == 0.85
@@ -48,7 +47,7 @@ class TestResultExplainer:
             result_path="/project/config.py",
             chunk_name=None,
             chunk_type="module",
-            relevance=0.7
+            relevance=0.7,
         )
 
         # Should have filename match
@@ -64,7 +63,7 @@ class TestResultExplainer:
             result_path="/project/auth.py",
             chunk_name="authenticate_user",
             chunk_type="function",
-            relevance=0.9
+            relevance=0.9,
         )
 
         # Should have structure match
@@ -79,7 +78,7 @@ class TestResultExplainer:
             result_path="/project/train.py",
             chunk_name="train_model",
             chunk_type="function",
-            relevance=0.75
+            relevance=0.75,
         )
 
         # Should have semantic match (no exact matches for query terms)
@@ -94,7 +93,7 @@ class TestResultExplainer:
             result_path="/project/file_parser.py",
             chunk_name="parse_yaml_file",
             chunk_type="function",
-            relevance=0.92
+            relevance=0.92,
         )
 
         # Should have multiple exact matches
@@ -110,7 +109,7 @@ class TestResultExplainer:
             result_path="/test.py",
             chunk_name="test_function",
             chunk_type="function",
-            relevance=0.8
+            relevance=0.8,
         )
 
         result_dict = result.to_dict()
@@ -127,7 +126,7 @@ class TestResultExplainer:
             result_path="/random.py",
             chunk_name=None,
             chunk_type="module",
-            relevance=0.35
+            relevance=0.35,
         )
 
         # Should still have some explanation
@@ -142,8 +141,7 @@ class TestResultExplainer:
     def test_find_exact_matches_case_insensitive(self):
         """Test exact matching is case insensitive."""
         matches = self.explainer._find_exact_matches(
-            {"embedding", "model"},
-            "The EMBEDDING model generates Embedding vectors"
+            {"embedding", "model"}, "The EMBEDDING model generates Embedding vectors"
         )
 
         # Should find "embedding" (appears twice with different cases)
@@ -160,16 +158,12 @@ class TestVisualPreviewGenerator:
 
     def test_generate_preview_basic(self):
         """Test basic preview generation."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write("\n".join([f"line {i}" for i in range(1, 21)]))
             temp_path = f.name
 
         try:
-            preview = self.generator.generate_preview(
-                file_path=temp_path,
-                line_start=5,
-                line_end=7
-            )
+            preview = self.generator.generate_preview(file_path=temp_path, line_start=5, line_end=7)
 
             assert preview is not None
             assert preview.language == "python"
@@ -184,7 +178,7 @@ class TestVisualPreviewGenerator:
 
     def test_generate_preview_with_query_highlighting(self):
         """Test that query terms are highlighted."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             content = """def calculate_total():
     total = 0
     for item in items:
@@ -203,7 +197,7 @@ def calculate_average():
                 line_start=1,
                 line_end=5,
                 query="calculate total",
-                highlight_matches=True
+                highlight_matches=True,
             )
 
             assert preview is not None
@@ -222,19 +216,17 @@ def calculate_average():
             (".json", "json"),
             (".rs", "rust"),
             (".go", "go"),
-            (".unknown", "text")
+            (".unknown", "text"),
         ]
 
         for ext, expected_lang in test_cases:
-            with tempfile.NamedTemporaryFile(mode='w', suffix=ext, delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=ext, delete=False) as f:
                 f.write("test content")
                 temp_path = f.name
 
             try:
                 preview = self.generator.generate_preview(
-                    file_path=temp_path,
-                    line_start=1,
-                    line_end=1
+                    file_path=temp_path, line_start=1, line_end=1
                 )
                 assert preview is not None
                 assert preview.language == expected_lang, f"Expected {expected_lang} for {ext}"
@@ -243,16 +235,14 @@ def calculate_average():
 
     def test_generate_preview_handles_truncation(self):
         """Test that long files are truncated."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write("\n".join([f"line {i}" for i in range(1, 101)]))
             temp_path = f.name
 
         try:
             # Request a range that would exceed max_preview_lines
             preview = self.generator.generate_preview(
-                file_path=temp_path,
-                line_start=1,
-                line_end=50
+                file_path=temp_path, line_start=1, line_end=50
             )
 
             assert preview is not None
@@ -266,25 +256,19 @@ def calculate_average():
     def test_generate_preview_nonexistent_file(self):
         """Test handling of nonexistent file."""
         preview = self.generator.generate_preview(
-            file_path="/nonexistent/file.py",
-            line_start=1,
-            line_end=10
+            file_path="/nonexistent/file.py", line_start=1, line_end=10
         )
 
         assert preview is None
 
     def test_generate_preview_line_number_formatting(self):
         """Test line numbers are properly formatted."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write("\n".join([f"content {i}" for i in range(1, 11)]))
             temp_path = f.name
 
         try:
-            preview = self.generator.generate_preview(
-                file_path=temp_path,
-                line_start=5,
-                line_end=5
-            )
+            preview = self.generator.generate_preview(file_path=temp_path, line_start=5, line_end=5)
 
             assert preview is not None
             # Should have arrow marker on highlighted line
@@ -300,7 +284,7 @@ def calculate_average():
             content_preview="def hello():\n    print('Hello')",
             file_path="/project/hello.py",
             line_start=10,
-            line_end=11
+            line_end=11,
         )
 
         assert "language" in preview_data
@@ -318,7 +302,7 @@ def calculate_average():
             highlight_lines=[1],
             language="python",
             truncated=False,
-            total_lines=1
+            total_lines=1,
         )
 
         result = preview.to_dict()
@@ -338,7 +322,7 @@ class TestMatchReason:
             description="Contains 'embedding'",
             confidence=0.9,
             matched_text="embedding",
-            location="content"
+            location="content",
         )
 
         assert reason.reason_type == "exact"
@@ -348,9 +332,7 @@ class TestMatchReason:
     def test_match_reason_optional_fields(self):
         """Test MatchReason with optional fields None."""
         reason = MatchReason(
-            reason_type="semantic",
-            description="Semantically related",
-            confidence=0.7
+            reason_type="semantic", description="Semantically related", confidence=0.7
         )
 
         assert reason.matched_text is None
@@ -364,13 +346,11 @@ class TestExplainedResult:
         """Test ExplainedResult serialization."""
         reasons = [
             MatchReason("exact", "Contains 'test'", 0.9, "test", "content"),
-            MatchReason("semantic", "Related to testing", 0.7)
+            MatchReason("semantic", "Related to testing", 0.7),
         ]
 
         result = ExplainedResult(
-            relevance=0.85,
-            reasons=reasons,
-            summary="contains 'test'; related to testing"
+            relevance=0.85, reasons=reasons, summary="contains 'test'; related to testing"
         )
 
         result_dict = result.to_dict()

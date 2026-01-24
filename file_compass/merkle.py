@@ -5,11 +5,11 @@ Based on Cursor IDE's approach for fast incremental indexing.
 """
 
 import hashlib
-from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple
 import json
 import logging
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FileNode:
     """Represents a file in the Merkle tree."""
+
     path: str
     content_hash: str
     chunk_hashes: List[str] = field(default_factory=list)
@@ -34,6 +35,7 @@ class FileNode:
 @dataclass
 class DirectoryNode:
     """Represents a directory in the Merkle tree."""
+
     path: str
     files: Dict[str, FileNode] = field(default_factory=dict)
     subdirs: Dict[str, "DirectoryNode"] = field(default_factory=dict)
@@ -83,8 +85,9 @@ class MerkleTree:
         self.root = DirectoryNode(path="")
         self._file_index: Dict[str, FileNode] = {}  # path -> FileNode
 
-    def add_file(self, path: str, content_hash: str, chunk_hashes: List[str] = None,
-                 modified_at: float = 0.0):
+    def add_file(
+        self, path: str, content_hash: str, chunk_hashes: List[str] = None, modified_at: float = 0.0
+    ):
         """
         Add or update a file in the tree.
 
@@ -112,7 +115,7 @@ class MerkleTree:
             path=path,
             content_hash=content_hash,
             chunk_hashes=chunk_hashes or [],
-            modified_at=modified_at
+            modified_at=modified_at,
         )
         current.files[filename] = file_node
         current.invalidate_hash()
@@ -244,7 +247,7 @@ class MerkleTree:
                 compare_dirs(
                     our_dir.subdirs.get(subdir, DirectoryNode(path=subpath)),
                     their_dir.subdirs.get(subdir),
-                    subpath
+                    subpath,
                 )
 
         compare_dirs(self.root, other.root, "")
@@ -252,6 +255,7 @@ class MerkleTree:
 
     def to_dict(self) -> Dict:
         """Serialize tree to dictionary."""
+
         def serialize_dir(dir_node: DirectoryNode) -> Dict:
             return {
                 "path": dir_node.path,
@@ -260,15 +264,15 @@ class MerkleTree:
                         "path": f.path,
                         "content_hash": f.content_hash,
                         "chunk_hashes": f.chunk_hashes,
-                        "modified_at": f.modified_at
+                        "modified_at": f.modified_at,
                     }
                     for name, f in dir_node.files.items()
                 },
                 "subdirs": {
-                    name: serialize_dir(subdir)
-                    for name, subdir in dir_node.subdirs.items()
-                }
+                    name: serialize_dir(subdir) for name, subdir in dir_node.subdirs.items()
+                },
             }
+
         return serialize_dir(self.root)
 
     @classmethod
@@ -282,7 +286,7 @@ class MerkleTree:
                     path=file_data["path"],
                     content_hash=file_data["content_hash"],
                     chunk_hashes=file_data.get("chunk_hashes", []),
-                    modified_at=file_data.get("modified_at", 0.0)
+                    modified_at=file_data.get("modified_at", 0.0),
                 )
                 current.files[name] = file_node
                 tree._file_index[file_data["path"]] = file_node
@@ -297,14 +301,14 @@ class MerkleTree:
 
     def save(self, path: Path):
         """Save tree to JSON file."""
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
     def load(cls, path: Path) -> Optional["MerkleTree"]:
         """Load tree from JSON file."""
         try:
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 data = json.load(f)
             return cls.from_dict(data)
         except (FileNotFoundError, json.JSONDecodeError) as e:
@@ -313,6 +317,7 @@ class MerkleTree:
 
     def get_stats(self) -> Dict:
         """Get statistics about the tree."""
+
         def count_dir(dir_node: DirectoryNode) -> Tuple[int, int, int]:
             files = len(dir_node.files)
             dirs = len(dir_node.subdirs)
@@ -331,7 +336,7 @@ class MerkleTree:
             "total_files": files,
             "total_directories": dirs,
             "total_chunks": chunks,
-            "root_hash": self.get_root_hash()
+            "root_hash": self.get_root_hash(),
         }
 
 

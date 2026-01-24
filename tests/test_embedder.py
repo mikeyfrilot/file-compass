@@ -3,10 +3,10 @@ Tests for file_compass.embedder module.
 Uses mocks to avoid requiring Ollama to be running.
 """
 
-import pytest
-import numpy as np
 from unittest.mock import AsyncMock, MagicMock, patch
-import asyncio
+
+import numpy as np
+import pytest
 
 from file_compass.embedder import Embedder, SyncEmbedder
 
@@ -25,11 +25,7 @@ class TestEmbedder:
 
     def test_init_custom_values(self):
         """Test custom initialization."""
-        embedder = Embedder(
-            base_url="http://custom:1234",
-            model="custom-model",
-            timeout=60.0
-        )
+        embedder = Embedder(base_url="http://custom:1234", model="custom-model", timeout=60.0)
         assert embedder.base_url == "http://custom:1234"
         assert embedder.model == "custom-model"
         assert embedder.timeout == 60.0
@@ -80,11 +76,9 @@ class TestEmbedder:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "models": [{"name": "nomic-embed-text:latest"}]
-        }
+        mock_response.json.return_value = {"models": [{"name": "nomic-embed-text:latest"}]}
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -99,11 +93,9 @@ class TestEmbedder:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "models": [{"name": "llama2:latest"}]
-        }
+        mock_response.json.return_value = {"models": [{"name": "llama2:latest"}]}
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -116,7 +108,7 @@ class TestEmbedder:
         """Test health check on connection error."""
         embedder = Embedder()
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(side_effect=Exception("Connection refused"))
             mock_get_client.return_value = mock_client
@@ -132,7 +124,7 @@ class TestEmbedder:
         mock_response = MagicMock()
         mock_response.status_code = 500
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -151,11 +143,9 @@ class TestEmbedder:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "embeddings": [mock_embedding.tolist()]
-        }
+        mock_response.json.return_value = {"embeddings": [mock_embedding.tolist()]}
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -183,11 +173,9 @@ class TestEmbedder:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "embeddings": [mock_embedding.tolist()]
-        }
+        mock_response.json.return_value = {"embeddings": [mock_embedding.tolist()]}
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -207,7 +195,7 @@ class TestEmbedder:
         mock_response.status_code = 500
         mock_response.text = "Internal Server Error"
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -225,7 +213,7 @@ class TestEmbedder:
         mock_response.status_code = 400
         mock_response.text = "Bad request"
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -242,11 +230,9 @@ class TestEmbedder:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "embeddings": [mock_embedding.tolist()]
-        }
+        mock_response.json.return_value = {"embeddings": [mock_embedding.tolist()]}
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -268,7 +254,7 @@ class TestEmbedder:
         mock_response.status_code = 400
         mock_response.text = "Bad Request"
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -287,11 +273,9 @@ class TestEmbedder:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "embeddings": [mock_embedding.tolist()]
-        }
+        mock_response.json.return_value = {"embeddings": [mock_embedding.tolist()]}
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -315,16 +299,14 @@ class TestEmbedder:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "embeddings": [mock_embedding.tolist()]
-        }
+        mock_response.json.return_value = {"embeddings": [mock_embedding.tolist()]}
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
 
-            with patch.object(embedder, 'embed', new_callable=AsyncMock) as mock_embed:
+            with patch.object(embedder, "embed", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = mock_embedding
 
                 await embedder.embed_batch(texts)
@@ -345,11 +327,9 @@ class TestEmbedder:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "embeddings": [mock_embedding.tolist()]
-        }
+        mock_response.json.return_value = {"embeddings": [mock_embedding.tolist()]}
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -426,10 +406,7 @@ class TestSyncEmbedder:
 
     def test_init_custom_values(self):
         """Test SyncEmbedder with custom values."""
-        sync_embedder = SyncEmbedder(
-            base_url="http://custom:1234",
-            model="custom-model"
-        )
+        sync_embedder = SyncEmbedder(base_url="http://custom:1234", model="custom-model")
         assert sync_embedder._async_embedder.base_url == "http://custom:1234"
         assert sync_embedder._async_embedder.model == "custom-model"
 
@@ -437,8 +414,9 @@ class TestSyncEmbedder:
         """Test sync health check."""
         sync_embedder = SyncEmbedder()
 
-        with patch.object(sync_embedder._async_embedder, 'health_check',
-                          new_callable=AsyncMock) as mock_health:
+        with patch.object(
+            sync_embedder._async_embedder, "health_check", new_callable=AsyncMock
+        ) as mock_health:
             mock_health.return_value = True
             result = sync_embedder.health_check()
             assert result is True
@@ -449,8 +427,9 @@ class TestSyncEmbedder:
 
         mock_embedding = np.random.randn(768).astype(np.float32)
 
-        with patch.object(sync_embedder._async_embedder, 'embed',
-                          new_callable=AsyncMock) as mock_embed:
+        with patch.object(
+            sync_embedder._async_embedder, "embed", new_callable=AsyncMock
+        ) as mock_embed:
             mock_embed.return_value = mock_embedding
             result = sync_embedder.embed("test text")
             assert result.shape == (768,)
@@ -461,8 +440,9 @@ class TestSyncEmbedder:
 
         mock_embedding = np.random.randn(768).astype(np.float32)
 
-        with patch.object(sync_embedder._async_embedder, 'embed_query',
-                          new_callable=AsyncMock) as mock_embed:
+        with patch.object(
+            sync_embedder._async_embedder, "embed_query", new_callable=AsyncMock
+        ) as mock_embed:
             mock_embed.return_value = mock_embedding
             result = sync_embedder.embed_query("search query")
             assert result.shape == (768,)
@@ -473,8 +453,9 @@ class TestSyncEmbedder:
 
         mock_embeddings = np.random.randn(3, 768).astype(np.float32)
 
-        with patch.object(sync_embedder._async_embedder, 'embed_batch',
-                          new_callable=AsyncMock) as mock_embed:
+        with patch.object(
+            sync_embedder._async_embedder, "embed_batch", new_callable=AsyncMock
+        ) as mock_embed:
             mock_embed.return_value = mock_embeddings
             result = sync_embedder.embed_batch(["text1", "text2", "text3"])
             assert result.shape == (3, 768)
@@ -483,8 +464,9 @@ class TestSyncEmbedder:
         """Test sync close."""
         sync_embedder = SyncEmbedder()
 
-        with patch.object(sync_embedder._async_embedder, 'close',
-                          new_callable=AsyncMock) as mock_close:
+        with patch.object(
+            sync_embedder._async_embedder, "close", new_callable=AsyncMock
+        ) as mock_close:
             sync_embedder.close()
             mock_close.assert_called_once()
 
@@ -502,11 +484,9 @@ class TestNormalization:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "embeddings": [unnormalized.tolist()]
-        }
+        mock_response.json.return_value = {"embeddings": [unnormalized.tolist()]}
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
@@ -526,11 +506,9 @@ class TestNormalization:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "embeddings": [zero_emb.tolist()]
-        }
+        mock_response.json.return_value = {"embeddings": [zero_emb.tolist()]}
 
-        with patch.object(embedder, '_get_client') as mock_get_client:
+        with patch.object(embedder, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
