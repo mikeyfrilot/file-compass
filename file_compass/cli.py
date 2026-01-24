@@ -6,8 +6,6 @@ Command-line tool for indexing and searching files.
 import argparse
 import asyncio
 import sys
-from pathlib import Path
-from datetime import datetime
 
 from .indexer import FileIndex, get_index
 from .scanner import FileScanner
@@ -15,6 +13,7 @@ from .scanner import FileScanner
 
 def cmd_index(args):
     """Build or rebuild the file index."""
+
     async def run():
         index = FileIndex()
 
@@ -24,10 +23,7 @@ def cmd_index(args):
         print("File Compass - Building Index")
         print("=" * 50)
 
-        stats = await index.build_index(
-            directories=directories,
-            show_progress=True
-        )
+        stats = await index.build_index(directories=directories, show_progress=True)
 
         await index.close()
         return stats
@@ -37,6 +33,7 @@ def cmd_index(args):
 
 def cmd_search(args):
     """Search the index."""
+
     async def run():
         index = get_index()
 
@@ -46,7 +43,7 @@ def cmd_search(args):
             file_types=args.types.split(",") if args.types else None,
             directory=args.directory,
             git_only=args.git_only,
-            min_relevance=args.min_relevance
+            min_relevance=args.min_relevance,
         )
 
         if not results:
@@ -84,9 +81,9 @@ def cmd_status(args):
     print(f"Index size:     {status['index_size_mb']:.1f} MB")
     print(f"Last build:     {status['last_build'] or 'Never'}")
 
-    if status['file_types']:
+    if status["file_types"]:
         print("\nFile types:")
-        for ft, count in sorted(status['file_types'].items(), key=lambda x: -x[1]):
+        for ft, count in sorted(status["file_types"].items(), key=lambda x: -x[1]):
             print(f"  {ft}: {count}")
 
 
@@ -109,6 +106,7 @@ def cmd_scan(args):
 
     # Summary by type
     from collections import Counter
+
     types = Counter(f.file_type for f in files)
     print("\nBy type:")
     for t, c in types.most_common(10):
@@ -132,7 +130,7 @@ Examples:
 
   # Show index status
   python -m file_compass.cli status
-        """
+        """,
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -140,9 +138,7 @@ Examples:
     # index command
     index_parser = subparsers.add_parser("index", help="Build or rebuild the index")
     index_parser.add_argument(
-        "-d", "--directories",
-        nargs="+",
-        help="Directories to index (default: F:/AI)"
+        "-d", "--directories", nargs="+", help="Directories to index (default: F:/AI)"
     )
     index_parser.set_defaults(func=cmd_index)
 
@@ -150,29 +146,20 @@ Examples:
     search_parser = subparsers.add_parser("search", help="Search the index")
     search_parser.add_argument("query", help="Search query")
     search_parser.add_argument(
-        "-k", "--top-k",
-        type=int,
-        default=10,
-        help="Number of results (default: 10)"
+        "-k", "--top-k", type=int, default=10, help="Number of results (default: 10)"
     )
     search_parser.add_argument(
-        "-t", "--types",
-        help="Comma-separated file types (e.g., python,markdown)"
+        "-t", "--types", help="Comma-separated file types (e.g., python,markdown)"
     )
+    search_parser.add_argument("-d", "--directory", help="Filter by directory prefix")
     search_parser.add_argument(
-        "-d", "--directory",
-        help="Filter by directory prefix"
-    )
-    search_parser.add_argument(
-        "--git-only",
-        action="store_true",
-        help="Only show git-tracked files"
+        "--git-only", action="store_true", help="Only show git-tracked files"
     )
     search_parser.add_argument(
         "--min-relevance",
         type=float,
         default=0.3,
-        help="Minimum relevance score (0-1, default: 0.3)"
+        help="Minimum relevance score (0-1, default: 0.3)",
     )
     search_parser.set_defaults(func=cmd_search)
 
@@ -182,16 +169,8 @@ Examples:
 
     # scan command
     scan_parser = subparsers.add_parser("scan", help="Scan directories (dry run)")
-    scan_parser.add_argument(
-        "-d", "--directories",
-        nargs="+",
-        help="Directories to scan"
-    )
-    scan_parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Show individual files"
-    )
+    scan_parser.add_argument("-d", "--directories", nargs="+", help="Directories to scan")
+    scan_parser.add_argument("-v", "--verbose", action="store_true", help="Show individual files")
     scan_parser.set_defaults(func=cmd_scan)
 
     args = parser.parse_args()

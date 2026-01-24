@@ -8,19 +8,17 @@ Phases:
 3. Full index (slow) - Complete semantic search
 """
 
-import sqlite3
-import asyncio
-from pathlib import Path
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Any, Generator
-from datetime import datetime, timedelta
 import logging
 import re
-import fnmatch
+import sqlite3
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from . import DEFAULT_DB_PATH
 from .config import get_config
-from .scanner import FileScanner, ScannedFile
+from .scanner import FileScanner
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +29,7 @@ QUICK_INDEX_PATH = DEFAULT_DB_PATH / "quick_index.db"
 @dataclass
 class QuickResult:
     """Result from quick (non-semantic) search."""
+
     path: str
     relative_path: str
     file_type: str
@@ -100,7 +99,7 @@ class QuickIndex:
         self,
         directories: Optional[List[str]] = None,
         extract_symbols: bool = True,
-        show_progress: bool = False
+        show_progress: bool = False,
     ) -> Dict[str, Any]:
         """
         Build quick index (filename + symbols).
@@ -115,8 +114,7 @@ class QuickIndex:
         Returns:
             Statistics about the indexing
         """
-        config = get_config()
-        dirs = directories or config.directories
+        get_config()
 
         start_time = datetime.now()
         conn = self._get_conn()
@@ -134,17 +132,20 @@ class QuickIndex:
 
         for scanned_file in self.scanner.scan_all():
             # Insert file record
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 INSERT INTO files (path, relative_path, file_type, size_bytes, modified_at, indexed_at)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                str(scanned_file.path),
-                scanned_file.relative_path,
-                scanned_file.file_type,
-                scanned_file.size_bytes,
-                scanned_file.modified_at.isoformat(),
-                datetime.now().isoformat()
-            ))
+            """,
+                (
+                    str(scanned_file.path),
+                    scanned_file.relative_path,
+                    scanned_file.file_type,
+                    scanned_file.size_bytes,
+                    scanned_file.modified_at.isoformat(),
+                    datetime.now().isoformat(),
+                ),
+            )
             file_id = cursor.lastrowid
             files_indexed += 1
 
@@ -152,10 +153,13 @@ class QuickIndex:
             if extract_symbols:
                 symbols = self._extract_symbols_fast(scanned_file.path)
                 for sym_name, sym_type, line_num in symbols:
-                    conn.execute("""
+                    conn.execute(
+                        """
                         INSERT INTO symbols (file_id, name, symbol_type, line_number)
                         VALUES (?, ?, ?, ?)
-                    """, (file_id, sym_name, sym_type, line_num))
+                    """,
+                        (file_id, sym_name, sym_type, line_num),
+                    )
                     symbols_extracted += 1
 
             if show_progress and files_indexed % 500 == 0:
@@ -166,12 +170,14 @@ class QuickIndex:
         duration = (datetime.now() - start_time).total_seconds()
 
         if show_progress:
-            print(f"Quick index complete: {files_indexed} files, {symbols_extracted} symbols in {duration:.1f}s")
+            print(
+                f"Quick index complete: {files_indexed} files, {symbols_extracted} symbols in {duration:.1f}s"
+            )
 
         return {
             "files_indexed": files_indexed,
             "symbols_extracted": symbols_extracted,
-            "duration_seconds": duration
+            "duration_seconds": duration,
         }
 
     def _extract_symbols_fast(self, path: Path) -> List[tuple]:
@@ -191,44 +197,51 @@ class QuickIndex:
             if suffix == ".py":
                 for i, line in enumerate(lines, 1):
                     # Function
-                    match = re.match(r'^\s*(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+                    match = re.match(r"^\s*(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)", line)
                     if match:
                         symbols.append((match.group(1), "function", i))
                     # Class
-                    match = re.match(r'^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+                    match = re.match(r"^\s*class\s+([a-zA-Z_][a-zA-Z0-9_]*)", line)
                     if match:
                         symbols.append((match.group(1), "class", i))
 
             elif suffix in (".js", ".ts", ".jsx", ".tsx"):
                 for i, line in enumerate(lines, 1):
                     # Function
-                    match = re.match(r'^\s*(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+                    match = re.match(
+                        r"^\s*(?:export\s+)?(?:async\s+)?function\s+([a-zA-Z_][a-zA-Z0-9_]*)", line
+                    )
                     if match:
                         symbols.append((match.group(1), "function", i))
                     # Class
-                    match = re.match(r'^\s*(?:export\s+)?class\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+                    match = re.match(r"^\s*(?:export\s+)?class\s+([a-zA-Z_][a-zA-Z0-9_]*)", line)
                     if match:
                         symbols.append((match.group(1), "class", i))
                     # Const arrow function
-                    match = re.match(r'^\s*(?:export\s+)?const\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(?:async\s+)?\(', line)
+                    match = re.match(
+                        r"^\s*(?:export\s+)?const\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(?:async\s+)?\(",
+                        line,
+                    )
                     if match:
                         symbols.append((match.group(1), "function", i))
 
             elif suffix in (".rs",):
                 for i, line in enumerate(lines, 1):
-                    match = re.match(r'^\s*(?:pub\s+)?(?:async\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+                    match = re.match(
+                        r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)", line
+                    )
                     if match:
                         symbols.append((match.group(1), "function", i))
-                    match = re.match(r'^\s*(?:pub\s+)?struct\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+                    match = re.match(r"^\s*(?:pub\s+)?struct\s+([a-zA-Z_][a-zA-Z0-9_]*)", line)
                     if match:
                         symbols.append((match.group(1), "struct", i))
 
             elif suffix == ".go":
                 for i, line in enumerate(lines, 1):
-                    match = re.match(r'^\s*func\s+(?:\([^)]+\)\s+)?([a-zA-Z_][a-zA-Z0-9_]*)', line)
+                    match = re.match(r"^\s*func\s+(?:\([^)]+\)\s+)?([a-zA-Z_][a-zA-Z0-9_]*)", line)
                     if match:
                         symbols.append((match.group(1), "function", i))
-                    match = re.match(r'^\s*type\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+struct', line)
+                    match = re.match(r"^\s*type\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+struct", line)
                     if match:
                         symbols.append((match.group(1), "struct", i))
 
@@ -243,7 +256,7 @@ class QuickIndex:
         top_k: int = 20,
         file_types: Optional[List[str]] = None,
         include_symbols: bool = True,
-        recent_days: Optional[int] = None
+        recent_days: Optional[int] = None,
     ) -> List[QuickResult]:
         """
         Search the quick index.
@@ -317,21 +330,25 @@ class QuickIndex:
                 else:
                     score = 0.5
 
-                results.append(QuickResult(
-                    path=row["path"],
-                    relative_path=row["relative_path"],
-                    file_type=row["file_type"],
-                    match_type="filename",
-                    match_text=row["relative_path"],
-                    line_number=None,
-                    modified_at=datetime.fromisoformat(row["modified_at"]),
-                    score=score
-                ))
+                results.append(
+                    QuickResult(
+                        path=row["path"],
+                        relative_path=row["relative_path"],
+                        file_type=row["file_type"],
+                        match_type="filename",
+                        match_text=row["relative_path"],
+                        line_number=None,
+                        modified_at=datetime.fromisoformat(row["modified_at"]),
+                        score=score,
+                    )
+                )
 
         # 2. Search symbols
         if include_symbols:
             # Build symbol date filter (uses f.modified_at alias)
-            sym_date_filter_sql = date_filter_sql.replace('modified_at', 'f.modified_at') if date_filter_sql else ""
+            sym_date_filter_sql = (
+                date_filter_sql.replace("modified_at", "f.modified_at") if date_filter_sql else ""
+            )
 
             for word in query_words:
                 # Build query with optional type filter
@@ -372,16 +389,18 @@ class QuickIndex:
                     else:
                         score = 0.5
 
-                    results.append(QuickResult(
-                        path=row["path"],
-                        relative_path=row["relative_path"],
-                        file_type=row["file_type"],
-                        match_type="symbol",
-                        match_text=f"{row['symbol_type']} {row['name']}",
-                        line_number=row["line_number"],
-                        modified_at=datetime.fromisoformat(row["modified_at"]),
-                        score=score
-                    ))
+                    results.append(
+                        QuickResult(
+                            path=row["path"],
+                            relative_path=row["relative_path"],
+                            file_type=row["file_type"],
+                            match_type="symbol",
+                            match_text=f"{row['symbol_type']} {row['name']}",
+                            line_number=row["line_number"],
+                            modified_at=datetime.fromisoformat(row["modified_at"]),
+                            score=score,
+                        )
+                    )
 
         # Deduplicate and sort by score
         seen = set()
@@ -405,15 +424,13 @@ class QuickIndex:
 
         # Get file type distribution
         type_dist = {}
-        for row in conn.execute(
-            "SELECT file_type, COUNT(*) as cnt FROM files GROUP BY file_type"
-        ):
+        for row in conn.execute("SELECT file_type, COUNT(*) as cnt FROM files GROUP BY file_type"):
             type_dist[row["file_type"]] = row["cnt"]
 
         return {
             "files_indexed": files_count,
             "symbols_indexed": symbols_count,
-            "file_types": type_dist
+            "file_types": type_dist,
         }
 
     def close(self):

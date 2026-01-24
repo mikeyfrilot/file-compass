@@ -3,22 +3,21 @@ Tests for file_compass.indexer module.
 Uses mocks and temporary directories to avoid external dependencies.
 """
 
-import pytest
 import tempfile
-import sqlite3
-import numpy as np
-from pathlib import Path
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
-import asyncio
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+
+import numpy as np
+import pytest
 
 from file_compass.indexer import FileIndex, SearchResult, get_index
+from file_compass.scanner import ScannedFile
 
 
 @pytest.fixture
 def temp_index():
     """Create a temporary FileIndex that gets cleaned up properly."""
-    import tempfile
     import shutil
 
     tmpdir = tempfile.mkdtemp()
@@ -34,6 +33,7 @@ def temp_index():
         index._conn = None
     # Give Windows time to release file handles
     import time
+
     time.sleep(0.1)
     try:
         shutil.rmtree(tmpdir)
@@ -58,7 +58,7 @@ class TestSearchResult:
             preview="def my_func():",
             relevance=0.85,
             modified_at=now,
-            git_tracked=True
+            git_tracked=True,
         )
         assert result.path == "/test/file.py"
         assert result.relative_path == "file.py"
@@ -85,7 +85,7 @@ class TestSearchResult:
             preview="content...",
             relevance=0.7,
             modified_at=datetime.now(),
-            git_tracked=False
+            git_tracked=False,
         )
         assert result.chunk_name is None
 
@@ -121,9 +121,7 @@ class TestFileIndex:
         assert index._conn is conn
 
         # Verify schema was created
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor}
         assert "files" in tables
         assert "chunks" in tables
@@ -146,17 +144,36 @@ class TestFileIndex:
         # Check files table structure
         cursor = conn.execute("PRAGMA table_info(files)")
         columns = {row[1] for row in cursor}
-        expected_cols = {"id", "path", "relative_path", "file_type", "size_bytes",
-                       "modified_at", "indexed_at", "content_hash", "git_repo",
-                       "is_git_tracked", "total_chunks"}
+        expected_cols = {
+            "id",
+            "path",
+            "relative_path",
+            "file_type",
+            "size_bytes",
+            "modified_at",
+            "indexed_at",
+            "content_hash",
+            "git_repo",
+            "is_git_tracked",
+            "total_chunks",
+        }
         assert expected_cols.issubset(columns)
 
         # Check chunks table structure
         cursor = conn.execute("PRAGMA table_info(chunks)")
         columns = {row[1] for row in cursor}
-        expected_cols = {"id", "file_id", "chunk_index", "chunk_type", "name",
-                       "line_start", "line_end", "content_preview", "token_count",
-                       "embedding_id"}
+        expected_cols = {
+            "id",
+            "file_id",
+            "chunk_index",
+            "chunk_type",
+            "name",
+            "line_start",
+            "line_end",
+            "content_preview",
+            "token_count",
+            "embedding_id",
+        }
         assert expected_cols.issubset(columns)
 
     def test_get_index_creates_new_index(self, temp_index):
@@ -216,20 +233,25 @@ class TestFileIndex:
         conn = index._get_conn()
 
         # Insert test data
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, ("/test/file.py", "file.py", "python", 100,
-              datetime.now().isoformat(), "abc123"))
-        conn.execute("""
+        """,
+            ("/test/file.py", "file.py", "python", 100, datetime.now().isoformat(), "abc123"),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type, line_start,
                                line_end, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (1, 0, "function", 1, 10, 0))
+        """,
+            (1, 0, "function", 1, 10, 0),
+        )
         conn.execute(
             "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-            ("last_build", datetime.now().isoformat())
+            ("last_build", datetime.now().isoformat()),
         )
         conn.commit()
 
@@ -260,22 +282,30 @@ class TestFileIndex:
         conn = index._get_conn()
 
         # Insert test data
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, ("/test/file.py", "file.py", "python", 100,
-              datetime.now().isoformat(), "abc123"))
-        conn.execute("""
+        """,
+            ("/test/file.py", "file.py", "python", 100, datetime.now().isoformat(), "abc123"),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type, line_start,
                                line_end, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (1, 0, "function", 1, 10, 42))
-        conn.execute("""
+        """,
+            (1, 0, "function", 1, 10, 42),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type, line_start,
                                line_end, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (1, 1, "function", 11, 20, 43))
+        """,
+            (1, 1, "function", 11, 20, 43),
+        )
         conn.commit()
 
         index._load_id_mapping()
@@ -297,7 +327,7 @@ class TestFileIndexSearch:
         index._get_index()
 
         # Mock embedder
-        with patch.object(index.embedder, 'embed_query', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.embedder, "embed_query", new_callable=AsyncMock) as mock_embed:
             mock_embed.return_value = np.random.randn(768).astype(np.float32)
 
             results = await index.search("test query")
@@ -313,17 +343,22 @@ class TestFileIndexSearch:
         hnsw = index._get_index()
 
         # Insert test data
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash, is_git_tracked)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, ("/test/file.py", "file.py", "python", 100,
-              datetime.now().isoformat(), "abc123", 1))
-        conn.execute("""
+        """,
+            ("/test/file.py", "file.py", "python", 100, datetime.now().isoformat(), "abc123", 1),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type, name,
                                line_start, line_end, content_preview, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (1, 0, "function", "test_func", 1, 10, "def test_func():", 0))
+        """,
+            (1, 0, "function", "test_func", 1, 10, "def test_func():", 0),
+        )
         conn.commit()
 
         # Add embedding to HNSW
@@ -333,7 +368,7 @@ class TestFileIndexSearch:
         index._id_to_chunk[0] = (1, 0)
 
         # Mock embedder to return similar embedding
-        with patch.object(index.embedder, 'embed_query', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.embedder, "embed_query", new_callable=AsyncMock) as mock_embed:
             # Return same embedding for high similarity
             mock_embed.return_value = test_embedding
 
@@ -352,30 +387,40 @@ class TestFileIndexSearch:
         hnsw = index._get_index()
 
         # Insert Python file
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, ("/test/code.py", "code.py", "python", 100,
-              datetime.now().isoformat(), "abc123"))
-        conn.execute("""
+        """,
+            ("/test/code.py", "code.py", "python", 100, datetime.now().isoformat(), "abc123"),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type,
                                line_start, line_end, content_preview, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (1, 0, "function", 1, 10, "def func():", 0))
+        """,
+            (1, 0, "function", 1, 10, "def func():", 0),
+        )
 
         # Insert Markdown file
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, ("/test/readme.md", "readme.md", "markdown", 50,
-              datetime.now().isoformat(), "def456"))
-        conn.execute("""
+        """,
+            ("/test/readme.md", "readme.md", "markdown", 50, datetime.now().isoformat(), "def456"),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type,
                                line_start, line_end, content_preview, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (2, 0, "section", 1, 5, "# README", 1))
+        """,
+            (2, 0, "section", 1, 5, "# README", 1),
+        )
         conn.commit()
 
         # Add embeddings to HNSW
@@ -387,7 +432,7 @@ class TestFileIndexSearch:
         index._id_to_chunk[0] = (1, 0)
         index._id_to_chunk[1] = (2, 0)
 
-        with patch.object(index.embedder, 'embed_query', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.embedder, "embed_query", new_callable=AsyncMock) as mock_embed:
             mock_embed.return_value = emb1
 
             # Filter by Python only
@@ -408,30 +453,56 @@ class TestFileIndexSearch:
         hnsw = index._get_index()
 
         # Insert tracked file
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash, is_git_tracked)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, ("/test/tracked.py", "tracked.py", "python", 100,
-              datetime.now().isoformat(), "abc123", 1))
-        conn.execute("""
+        """,
+            (
+                "/test/tracked.py",
+                "tracked.py",
+                "python",
+                100,
+                datetime.now().isoformat(),
+                "abc123",
+                1,
+            ),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type,
                                line_start, line_end, content_preview, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (1, 0, "function", 1, 10, "def func():", 0))
+        """,
+            (1, 0, "function", 1, 10, "def func():", 0),
+        )
 
         # Insert untracked file
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash, is_git_tracked)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, ("/test/untracked.py", "untracked.py", "python", 50,
-              datetime.now().isoformat(), "def456", 0))
-        conn.execute("""
+        """,
+            (
+                "/test/untracked.py",
+                "untracked.py",
+                "python",
+                50,
+                datetime.now().isoformat(),
+                "def456",
+                0,
+            ),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type,
                                line_start, line_end, content_preview, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (2, 0, "function", 1, 5, "def other():", 1))
+        """,
+            (2, 0, "function", 1, 5, "def other():", 1),
+        )
         conn.commit()
 
         # Add embeddings
@@ -443,7 +514,7 @@ class TestFileIndexSearch:
         index._id_to_chunk[0] = (1, 0)
         index._id_to_chunk[1] = (2, 0)
 
-        with patch.object(index.embedder, 'embed_query', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.embedder, "embed_query", new_callable=AsyncMock) as mock_embed:
             mock_embed.return_value = emb1
 
             # Filter by git tracked only
@@ -461,17 +532,22 @@ class TestFileIndexSearch:
         hnsw = index._get_index()
 
         # Insert file
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, ("/test/file.py", "file.py", "python", 100,
-              datetime.now().isoformat(), "abc123"))
-        conn.execute("""
+        """,
+            ("/test/file.py", "file.py", "python", 100, datetime.now().isoformat(), "abc123"),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type,
                                line_start, line_end, content_preview, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (1, 0, "function", 1, 10, "def func():", 0))
+        """,
+            (1, 0, "function", 1, 10, "def func():", 0),
+        )
         conn.commit()
 
         # Add embedding
@@ -480,7 +556,7 @@ class TestFileIndexSearch:
         hnsw.add_items(doc_embedding.reshape(1, -1), np.array([0]))
         index._id_to_chunk[0] = (1, 0)
 
-        with patch.object(index.embedder, 'embed_query', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.embedder, "embed_query", new_callable=AsyncMock) as mock_embed:
             # Return very different embedding (low similarity)
             query_embedding = np.random.randn(768).astype(np.float32)
             query_embedding = query_embedding / np.linalg.norm(query_embedding)
@@ -504,19 +580,21 @@ class TestFileIndexBuild:
         conn = index._get_conn()
 
         # Insert existing data
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, ("/old/file.py", "file.py", "python", 100,
-              datetime.now().isoformat(), "old123"))
+        """,
+            ("/old/file.py", "file.py", "python", 100, datetime.now().isoformat(), "old123"),
+        )
         conn.commit()
 
         assert conn.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 1
 
         # Mock scanner to return empty
-        with patch.object(index.scanner, 'scan_all', return_value=iter([])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.array([])
 
                 await index.build_index(show_progress=False)
@@ -535,17 +613,18 @@ class TestFileIndexBuild:
 
         # Mock scanner to return our test file
         from file_compass.scanner import ScannedFile
+
         mock_file = ScannedFile(
             path=test_file,
             relative_path="test.py",
             file_type="python",
             size_bytes=35,
             modified_at=datetime.now(),
-            content_hash="test123"
+            content_hash="test123",
         )
 
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 # Return mock embeddings
                 mock_embed.return_value = np.random.randn(1, 768).astype(np.float32)
 
@@ -560,18 +639,21 @@ class TestFileIndexBuild:
         index, _ = temp_index
 
         from file_compass.scanner import ScannedFile
+
         mock_file = ScannedFile(
             path=Path("/nonexistent/file.py"),
             relative_path="file.py",
             file_type="python",
             size_bytes=100,
             modified_at=datetime.now(),
-            content_hash="test123"
+            content_hash="test123",
         )
 
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file])):
-            with patch.object(index.chunker, 'chunk_file', side_effect=Exception("Chunk error")):
-                with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file])):
+            with patch.object(index.chunker, "chunk_file", side_effect=Exception("Chunk error")):
+                with patch.object(
+                    index.embedder, "embed_batch", new_callable=AsyncMock
+                ) as mock_embed:
                     mock_embed.return_value = np.array([]).reshape(0, 768)
 
                     # Should not raise
@@ -603,6 +685,7 @@ class TestGetIndex:
     def test_get_index_returns_file_index(self):
         """Test that get_index returns FileIndex instance."""
         import file_compass.indexer as indexer_module
+
         indexer_module._index = None
 
         index = get_index()
@@ -625,30 +708,54 @@ class TestSearchFilters:
         hnsw = index._get_index()
 
         # Insert file in specific directory
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, ("/test/src/file.py", "src/file.py", "python", 100,
-              datetime.now().isoformat(), "abc123"))
-        conn.execute("""
+        """,
+            (
+                "/test/src/file.py",
+                "src/file.py",
+                "python",
+                100,
+                datetime.now().isoformat(),
+                "abc123",
+            ),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type,
                                line_start, line_end, content_preview, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (1, 0, "function", 1, 10, "def func():", 0))
+        """,
+            (1, 0, "function", 1, 10, "def func():", 0),
+        )
 
         # Insert file in different directory
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, ("/test/lib/other.py", "lib/other.py", "python", 50,
-              datetime.now().isoformat(), "def456"))
-        conn.execute("""
+        """,
+            (
+                "/test/lib/other.py",
+                "lib/other.py",
+                "python",
+                50,
+                datetime.now().isoformat(),
+                "def456",
+            ),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type,
                                line_start, line_end, content_preview, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (2, 0, "function", 1, 5, "def other():", 1))
+        """,
+            (2, 0, "function", 1, 5, "def other():", 1),
+        )
         conn.commit()
 
         # Add embeddings
@@ -660,7 +767,7 @@ class TestSearchFilters:
         index._id_to_chunk[0] = (1, 0)
         index._id_to_chunk[1] = (2, 0)
 
-        with patch.object(index.embedder, 'embed_query', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.embedder, "embed_query", new_callable=AsyncMock) as mock_embed:
             mock_embed.return_value = emb1
 
             # Filter by directory prefix
@@ -679,17 +786,22 @@ class TestSearchFilters:
         hnsw = index._get_index()
 
         # Insert file and chunk
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO files (path, relative_path, file_type, size_bytes,
                                modified_at, content_hash)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, ("/test/file.py", "file.py", "python", 100,
-              datetime.now().isoformat(), "abc123"))
-        conn.execute("""
+        """,
+            ("/test/file.py", "file.py", "python", 100, datetime.now().isoformat(), "abc123"),
+        )
+        conn.execute(
+            """
             INSERT INTO chunks (file_id, chunk_index, chunk_type,
                                line_start, line_end, content_preview, embedding_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (1, 0, "function", 1, 10, "def func():", 0))
+        """,
+            (1, 0, "function", 1, 10, "def func():", 0),
+        )
         conn.commit()
 
         # Add embedding but DON'T add to _id_to_chunk
@@ -698,7 +810,7 @@ class TestSearchFilters:
         hnsw.add_items(emb1.reshape(1, -1), np.array([0]))
         # Intentionally not setting index._id_to_chunk[0]
 
-        with patch.object(index.embedder, 'embed_query', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.embedder, "embed_query", new_callable=AsyncMock) as mock_embed:
             mock_embed.return_value = emb1
 
             # Should not crash, just skip this result
@@ -719,7 +831,7 @@ class TestSearchFilters:
         hnsw.add_items(emb1.reshape(1, -1), np.array([0]))
         index._id_to_chunk[0] = (999, 0)  # Non-existent file_id
 
-        with patch.object(index.embedder, 'embed_query', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.embedder, "embed_query", new_callable=AsyncMock) as mock_embed:
             mock_embed.return_value = emb1
 
             # Should not crash, just skip this result
@@ -736,17 +848,18 @@ class TestSearchFilters:
         test_file.write_text("def hello():\n    return 'world'")
 
         from file_compass.scanner import ScannedFile
+
         mock_file = ScannedFile(
             path=test_file,
             relative_path="test.py",
             file_type="python",
             size_bytes=35,
             modified_at=datetime.now(),
-            content_hash="test123"
+            content_hash="test123",
         )
 
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.random.randn(1, 768).astype(np.float32)
 
                 # Build with progress
@@ -776,11 +889,11 @@ class TestIncrementalUpdate:
             file_type="python",
             size_bytes=20,
             modified_at=datetime.now(),
-            content_hash="hash1"
+            content_hash="hash1",
         )
 
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.random.randn(1, 768).astype(np.float32)
 
                 # Should fall back to full build
@@ -804,18 +917,18 @@ class TestIncrementalUpdate:
             file_type="python",
             size_bytes=20,
             modified_at=datetime.now(),
-            content_hash="hash1"
+            content_hash="hash1",
         )
 
         # First do a full build
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.random.randn(1, 768).astype(np.float32)
                 await index.build_index(show_progress=False)
 
         # Now do incremental update with same files
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.random.randn(1, 768).astype(np.float32)
                 stats = await index.incremental_update(show_progress=False)
 
@@ -839,12 +952,12 @@ class TestIncrementalUpdate:
             file_type="python",
             size_bytes=20,
             modified_at=datetime.now(),
-            content_hash="hash1"
+            content_hash="hash1",
         )
 
         # First build with one file
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file1])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file1])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.random.randn(1, 768).astype(np.float32)
                 await index.build_index(show_progress=False)
 
@@ -858,12 +971,12 @@ class TestIncrementalUpdate:
             file_type="python",
             size_bytes=20,
             modified_at=datetime.now(),
-            content_hash="hash2"
+            content_hash="hash2",
         )
 
         # Incremental update with both files
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file1, mock_file2])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file1, mock_file2])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.random.randn(1, 768).astype(np.float32)
                 stats = await index.incremental_update(show_progress=False)
 
@@ -885,12 +998,12 @@ class TestIncrementalUpdate:
             file_type="python",
             size_bytes=20,
             modified_at=datetime.now(),
-            content_hash="hash_v1"
+            content_hash="hash_v1",
         )
 
         # First build
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file_v1])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file_v1])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.random.randn(1, 768).astype(np.float32)
                 await index.build_index(show_progress=False)
 
@@ -901,12 +1014,12 @@ class TestIncrementalUpdate:
             file_type="python",
             size_bytes=30,
             modified_at=datetime.now(),
-            content_hash="hash_v2"  # Different hash
+            content_hash="hash_v2",  # Different hash
         )
 
         # Incremental update
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file_v2])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file_v2])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.random.randn(1, 768).astype(np.float32)
                 stats = await index.incremental_update(show_progress=False)
 
@@ -930,7 +1043,7 @@ class TestIncrementalUpdate:
             file_type="python",
             size_bytes=20,
             modified_at=datetime.now(),
-            content_hash="hash1"
+            content_hash="hash1",
         )
         mock_file2 = ScannedFile(
             path=test_file2,
@@ -938,18 +1051,18 @@ class TestIncrementalUpdate:
             file_type="python",
             size_bytes=20,
             modified_at=datetime.now(),
-            content_hash="hash2"
+            content_hash="hash2",
         )
 
         # First build with two files
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file1, mock_file2])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file1, mock_file2])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.random.randn(2, 768).astype(np.float32)
                 await index.build_index(show_progress=False)
 
         # Incremental update with only one file (simulating deletion)
-        with patch.object(index.scanner, 'scan_all', return_value=iter([mock_file1])):
-            with patch.object(index.embedder, 'embed_batch', new_callable=AsyncMock) as mock_embed:
+        with patch.object(index.scanner, "scan_all", return_value=iter([mock_file1])):
+            with patch.object(index.embedder, "embed_batch", new_callable=AsyncMock) as mock_embed:
                 mock_embed.return_value = np.random.randn(0, 768).astype(np.float32)
                 stats = await index.incremental_update(show_progress=False)
 
@@ -957,5 +1070,3 @@ class TestIncrementalUpdate:
         assert stats["files_removed"] == 1
 
 
-# Need to import ScannedFile for the new tests
-from file_compass.scanner import ScannedFile

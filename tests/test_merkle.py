@@ -2,13 +2,15 @@
 Tests for file_compass.merkle module.
 """
 
-import pytest
 import tempfile
 from pathlib import Path
 
 from file_compass.merkle import (
-    MerkleTree, FileNode, DirectoryNode,
-    compute_chunk_hash, compute_file_hash
+    DirectoryNode,
+    FileNode,
+    MerkleTree,
+    compute_chunk_hash,
+    compute_file_hash,
 )
 
 
@@ -21,7 +23,7 @@ class TestFileNode:
             path="test/file.py",
             content_hash="abc123",
             chunk_hashes=["hash1", "hash2"],
-            modified_at=1234567890.0
+            modified_at=1234567890.0,
         )
         assert node.path == "test/file.py"
         assert node.content_hash == "abc123"
@@ -318,7 +320,7 @@ class TestHelperFunctions:
 
     def test_compute_file_hash(self):
         """Test file hash computation."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("test content")
             temp_path = Path(f.name)
 
@@ -365,7 +367,9 @@ class TestComplexScenarios:
 
         # After some edits
         new_tree = MerkleTree()
-        new_tree.add_file("src/main.py", "hash1_new", chunk_hashes=["c1", "c2_modified"])  # Modified
+        new_tree.add_file(
+            "src/main.py", "hash1_new", chunk_hashes=["c1", "c2_modified"]
+        )  # Modified
         new_tree.add_file("src/utils.py", "hash2", chunk_hashes=["c3"])  # Unchanged
         new_tree.add_file("src/helpers.py", "hash4")  # Added
         # tests/test_main.py removed

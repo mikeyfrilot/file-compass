@@ -5,22 +5,23 @@ Supports AST-aware chunking via tree-sitter for multiple languages.
 """
 
 import ast
-import re
-from pathlib import Path
-from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Dict, Any
 import logging
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from .config import get_config
 
 # Tree-sitter imports (optional - falls back to Python AST if unavailable)
 try:
     import tree_sitter
-    import tree_sitter_python
-    import tree_sitter_javascript
-    import tree_sitter_typescript
-    import tree_sitter_rust
     import tree_sitter_go
+    import tree_sitter_javascript
+    import tree_sitter_python
+    import tree_sitter_rust
+    import tree_sitter_typescript
+
     TREE_SITTER_AVAILABLE = True
 except ImportError:
     TREE_SITTER_AVAILABLE = False
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Chunk:
     """Represents a chunk of file content for embedding."""
+
     content: str
     chunk_type: str  # 'whole_file', 'function', 'class', 'method', 'section', 'window'
     name: Optional[str]  # Function/class name if applicable
@@ -72,7 +74,7 @@ class FileChunker:
         max_chunk_tokens: Optional[int] = None,
         chunk_overlap_tokens: Optional[int] = None,
         min_chunk_tokens: Optional[int] = None,
-        use_tree_sitter: bool = True
+        use_tree_sitter: bool = True,
     ):
         config = get_config()
         self.max_tokens = max_chunk_tokens or config.max_chunk_tokens
@@ -103,7 +105,7 @@ class FileChunker:
         for extensions, lang_module, lang_name in lang_configs:
             try:
                 # Get language from module
-                if hasattr(lang_module, 'language'):
+                if hasattr(lang_module, "language"):
                     language = tree_sitter.Language(lang_module.language())
                 else:
                     # For typescript which returns language directly
@@ -200,14 +202,16 @@ class FileChunker:
         if not chunks:
             if len(content) > 6000:  # Too large for single chunk, use sliding window
                 return self._chunk_sliding_window(content)
-            return [Chunk(
-                content=content,
-                chunk_type="whole_file",
-                name=None,
-                line_start=1,
-                line_end=content.count("\n") + 1,
-                preview=self._make_preview(content)
-            )]
+            return [
+                Chunk(
+                    content=content,
+                    chunk_type="whole_file",
+                    name=None,
+                    line_start=1,
+                    line_end=content.count("\n") + 1,
+                    preview=self._make_preview(content),
+                )
+            ]
 
         # Split any oversized chunks using sliding window (nomic-embed-text limit ~8192 tokens)
         final_chunks = []
@@ -245,7 +249,7 @@ class FileChunker:
             return []
 
         try:
-            tree = parser.parse(bytes(content, 'utf-8'))
+            tree = parser.parse(bytes(content, "utf-8"))
         except Exception as e:
             logger.warning(f"Tree-sitter parse failed for {lang_name}: {e}")
             return []
@@ -256,41 +260,35 @@ class FileChunker:
         # Define node types to extract for each language
         # Maps: lang_name -> (function_types, class_types, method_parent_type)
         lang_definitions = {
-            "python": (
-                ["function_definition"],
-                ["class_definition"],
-                "class_definition"
-            ),
+            "python": (["function_definition"], ["class_definition"], "class_definition"),
             "javascript": (
                 ["function_declaration", "arrow_function", "function_expression"],
                 ["class_declaration"],
-                "class_declaration"
+                "class_declaration",
             ),
             "typescript": (
                 ["function_declaration", "arrow_function", "function_expression"],
                 ["class_declaration", "interface_declaration", "type_alias_declaration"],
-                "class_declaration"
+                "class_declaration",
             ),
             "tsx": (
                 ["function_declaration", "arrow_function", "function_expression"],
                 ["class_declaration", "interface_declaration", "type_alias_declaration"],
-                "class_declaration"
+                "class_declaration",
             ),
             "rust": (
                 ["function_item"],
                 ["struct_item", "enum_item", "impl_item", "trait_item"],
-                "impl_item"
+                "impl_item",
             ),
             "go": (
                 ["function_declaration", "method_declaration"],
                 ["type_declaration"],
-                "type_declaration"
+                "type_declaration",
             ),
         }
 
-        func_types, class_types, method_parent = lang_definitions.get(
-            lang_name, ([], [], None)
-        )
+        func_types, class_types, method_parent = lang_definitions.get(lang_name, ([], [], None))
 
         # Track what's been extracted
         extracted_ranges = set()
@@ -299,18 +297,18 @@ class FileChunker:
             """Get text for a node."""
             start_line = node.start_point[0]
             end_line = node.end_point[0]
-            return "\n".join(lines[start_line:end_line + 1])
+            return "\n".join(lines[start_line : end_line + 1])
 
         def get_node_name(node) -> Optional[str]:
             """Extract name from node (language-specific)."""
             # Look for identifier child
             for child in node.children:
                 if child.type == "identifier":
-                    return child.text.decode('utf-8')
+                    return child.text.decode("utf-8")
                 if child.type == "name":  # Python
-                    return child.text.decode('utf-8')
+                    return child.text.decode("utf-8")
                 if child.type == "property_identifier":  # JS methods
-                    return child.text.decode('utf-8')
+                    return child.text.decode("utf-8")
             return None
 
         def find_parent_class(node) -> Optional[str]:
@@ -340,16 +338,18 @@ class FileChunker:
             if self._estimate_tokens(text) < self.min_tokens:
                 return
 
-            chunks.append(Chunk(
-                content=text,
-                chunk_type=chunk_type,
-                name=name,
-                line_start=start_line + 1,  # 1-indexed
-                line_end=end_line + 1,
-                preview=self._make_preview(text),
-                parent_class=parent_class,
-                language=lang_name
-            ))
+            chunks.append(
+                Chunk(
+                    content=text,
+                    chunk_type=chunk_type,
+                    name=name,
+                    line_start=start_line + 1,  # 1-indexed
+                    line_end=end_line + 1,
+                    preview=self._make_preview(text),
+                    parent_class=parent_class,
+                    language=lang_name,
+                )
+            )
 
         def walk_tree(node):
             """Recursively walk tree and extract semantic nodes."""
@@ -400,19 +400,21 @@ class FileChunker:
                 if node.decorator_list:
                     start = min(d.lineno for d in node.decorator_list)
 
-                chunk_lines = lines[start - 1:end]
+                chunk_lines = lines[start - 1 : end]
                 chunk_content = "\n".join(chunk_lines)
 
                 # Skip if too large (will be handled by sliding window)
                 if self._estimate_tokens(chunk_content) <= self.max_tokens * 2:
-                    chunks.append(Chunk(
-                        content=chunk_content,
-                        chunk_type="function",
-                        name=node.name,
-                        line_start=start,
-                        line_end=end,
-                        preview=self._make_preview(chunk_content)
-                    ))
+                    chunks.append(
+                        Chunk(
+                            content=chunk_content,
+                            chunk_type="function",
+                            name=node.name,
+                            line_start=start,
+                            line_end=end,
+                            preview=self._make_preview(chunk_content),
+                        )
+                    )
                     covered_lines.update(range(start, end + 1))
 
             elif isinstance(node, ast.ClassDef):
@@ -423,25 +425,27 @@ class FileChunker:
                 if node.decorator_list:
                     start = min(d.lineno for d in node.decorator_list)
 
-                chunk_lines = lines[start - 1:end]
+                chunk_lines = lines[start - 1 : end]
                 chunk_content = "\n".join(chunk_lines)
 
                 # For large classes, just take the signature and docstring
                 if self._estimate_tokens(chunk_content) > self.max_tokens * 2:
                     # Get class definition + first method or docstring
                     preview_end = min(start + 30, end)
-                    chunk_content = "\n".join(lines[start - 1:preview_end])
+                    chunk_content = "\n".join(lines[start - 1 : preview_end])
                     chunk_content += "\n    # ... (class continues)"
                     end = preview_end
 
-                chunks.append(Chunk(
-                    content=chunk_content,
-                    chunk_type="class",
-                    name=node.name,
-                    line_start=start,
-                    line_end=end,
-                    preview=self._make_preview(chunk_content)
-                ))
+                chunks.append(
+                    Chunk(
+                        content=chunk_content,
+                        chunk_type="class",
+                        name=node.name,
+                        line_start=start,
+                        line_end=end,
+                        preview=self._make_preview(chunk_content),
+                    )
+                )
                 covered_lines.update(range(start, end + 1))
 
         # Get module-level code (imports, constants, etc.) if significant
@@ -468,14 +472,16 @@ class FileChunker:
             for group in groups:
                 content = "\n".join(line for _, line in group)
                 if self._estimate_tokens(content) >= self.min_tokens:
-                    chunks.append(Chunk(
-                        content=content,
-                        chunk_type="module",
-                        name=None,
-                        line_start=group[0][0],
-                        line_end=group[-1][0],
-                        preview=self._make_preview(content)
-                    ))
+                    chunks.append(
+                        Chunk(
+                            content=content,
+                            chunk_type="module",
+                            name=None,
+                            line_start=group[0][0],
+                            line_end=group[-1][0],
+                            preview=self._make_preview(content),
+                        )
+                    )
 
         # Sort by line number
         chunks.sort(key=lambda c: c.line_start)
@@ -509,7 +515,7 @@ class FileChunker:
         for idx, (line_idx, level, title) in enumerate(headings):
             # Find end (next heading of same or higher level, or EOF)
             end_idx = len(lines)
-            for next_line_idx, next_level, _ in headings[idx + 1:]:
+            for next_line_idx, next_level, _ in headings[idx + 1 :]:
                 if next_level <= level:
                     end_idx = next_line_idx
                     break
@@ -518,14 +524,16 @@ class FileChunker:
             chunk_content = "\n".join(chunk_lines).strip()
 
             if chunk_content:
-                chunks.append(Chunk(
-                    content=chunk_content,
-                    chunk_type="section",
-                    name=title,
-                    line_start=line_idx + 1,
-                    line_end=end_idx,
-                    preview=self._make_preview(chunk_content)
-                ))
+                chunks.append(
+                    Chunk(
+                        content=chunk_content,
+                        chunk_type="section",
+                        name=title,
+                        line_start=line_idx + 1,
+                        line_end=end_idx,
+                        preview=self._make_preview(chunk_content),
+                    )
+                )
 
         return chunks
 
@@ -566,14 +574,16 @@ class FileChunker:
             if current_chars + line_chars > max_chars and current_chunk:
                 # Save current chunk
                 chunk_content = "\n".join(current_chunk)
-                chunks.append(Chunk(
-                    content=chunk_content,
-                    chunk_type="window",
-                    name=None,
-                    line_start=chunk_start_line,
-                    line_end=i - 1,
-                    preview=self._make_preview(chunk_content)
-                ))
+                chunks.append(
+                    Chunk(
+                        content=chunk_content,
+                        chunk_type="window",
+                        name=None,
+                        line_start=chunk_start_line,
+                        line_end=i - 1,
+                        preview=self._make_preview(chunk_content),
+                    )
+                )
 
                 # Start new chunk with overlap
                 overlap_lines = []
@@ -594,14 +604,16 @@ class FileChunker:
         # Save final chunk
         if current_chunk:
             chunk_content = "\n".join(current_chunk)
-            chunks.append(Chunk(
-                content=chunk_content,
-                chunk_type="window",
-                name=None,
-                line_start=chunk_start_line,
-                line_end=len(lines),
-                preview=self._make_preview(chunk_content)
-            ))
+            chunks.append(
+                Chunk(
+                    content=chunk_content,
+                    chunk_type="window",
+                    name=None,
+                    line_start=chunk_start_line,
+                    line_end=len(lines),
+                    preview=self._make_preview(chunk_content),
+                )
+            )
 
         return chunks
 

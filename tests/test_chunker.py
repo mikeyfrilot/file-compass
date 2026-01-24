@@ -2,16 +2,16 @@
 Tests for file_compass.chunker module.
 """
 
-import pytest
-from pathlib import Path
 import tempfile
+from pathlib import Path
 
-from file_compass.chunker import FileChunker, Chunk, TREE_SITTER_AVAILABLE
+import pytest
+
+from file_compass.chunker import TREE_SITTER_AVAILABLE, Chunk, FileChunker
 
 # Marker for tests requiring tree-sitter
 requires_tree_sitter = pytest.mark.skipif(
-    not TREE_SITTER_AVAILABLE,
-    reason="tree-sitter not installed"
+    not TREE_SITTER_AVAILABLE, reason="tree-sitter not installed"
 )
 
 
@@ -31,11 +31,7 @@ class TestFileChunker:
 
     def test_init_custom_values(self):
         """Test custom initialization."""
-        chunker = FileChunker(
-            max_chunk_tokens=500,
-            chunk_overlap_tokens=50,
-            min_chunk_tokens=10
-        )
+        chunker = FileChunker(max_chunk_tokens=500, chunk_overlap_tokens=50, min_chunk_tokens=10)
         assert chunker.max_tokens == 500
         assert chunker.overlap_tokens == 50
         assert chunker.min_tokens == 10
@@ -74,7 +70,7 @@ class Greeter:
     def greet(self, name):
         return f"Hello, {name}!"
 '''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(python_code)
             temp_path = Path(f.name)
 
@@ -88,7 +84,7 @@ class Greeter:
 
     def test_chunk_markdown_file(self):
         """Test chunking a Markdown file."""
-        markdown = '''
+        markdown = """
 # Heading 1
 
 Some content under heading 1.
@@ -100,8 +96,8 @@ More content here.
 ### Heading 3
 
 Even more content.
-'''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write(markdown)
             temp_path = Path(f.name)
 
@@ -121,7 +117,7 @@ Even more content.
         chunks = self.chunker._chunk_sliding_window(large_text)
 
         assert len(chunks) >= 1
-        assert all(c.chunk_type == 'window' for c in chunks)
+        assert all(c.chunk_type == "window" for c in chunks)
 
     def test_chunk_very_large_sliding_window(self):
         """Test sliding window with definitely large text."""
@@ -133,11 +129,11 @@ Even more content.
 
         # With max 100 tokens (~400 chars), this should split into multiple chunks
         assert len(chunks) > 1
-        assert all(c.chunk_type == 'window' for c in chunks)
+        assert all(c.chunk_type == "window" for c in chunks)
 
     def test_chunk_empty_file(self):
         """Test chunking an empty file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("")
             temp_path = Path(f.name)
 
@@ -150,14 +146,14 @@ Even more content.
 
     def test_chunk_preserves_line_numbers(self):
         """Test that chunks preserve line number information."""
-        code = '''line1
+        code = """line1
 line2
 line3
 def func():
     pass
 line6
-'''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(code)
             temp_path = Path(f.name)
 
@@ -174,7 +170,7 @@ line6
         # Create a very long function
         long_func = "def long_function():\n" + "    x = 1\n" * 1000
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(long_func)
             temp_path = Path(f.name)
 
@@ -184,7 +180,7 @@ line6
             assert len(chunks) >= 1
             # No single chunk should exceed 6000 chars
             for chunk in chunks:
-                assert len(chunk.content) <= 6000 or chunk.chunk_type == 'whole_file'
+                assert len(chunk.content) <= 6000 or chunk.chunk_type == "whole_file"
         finally:
             temp_path.unlink()
 
@@ -196,7 +192,7 @@ line6
             name="test_name",
             line_start=1,
             line_end=5,
-            preview="test..."
+            preview="test...",
         )
         assert chunk.content == "test content"
         assert chunk.chunk_type == "test"
@@ -213,7 +209,7 @@ line6
     def test_chunk_json_file(self):
         """Test chunking a JSON file uses sliding window."""
         json_content = '{"key1": "value1", "key2": "value2"}'
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write(json_content)
             temp_path = Path(f.name)
 
@@ -225,8 +221,8 @@ line6
 
     def test_chunk_yaml_file(self):
         """Test chunking a YAML file uses sliding window."""
-        yaml_content = 'key1: value1\nkey2: value2\n'
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        yaml_content = "key1: value1\nkey2: value2\n"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             temp_path = Path(f.name)
 
@@ -238,8 +234,8 @@ line6
 
     def test_chunk_yml_file(self):
         """Test chunking a YML file uses sliding window."""
-        yml_content = 'key1: value1\nkey2: value2\n'
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+        yml_content = "key1: value1\nkey2: value2\n"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(yml_content)
             temp_path = Path(f.name)
 
@@ -252,7 +248,7 @@ line6
     def test_chunk_invalid_python_syntax(self):
         """Test chunking invalid Python falls back to sliding window."""
         invalid_python = "def broken(\n    this is not valid python!!!"
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(invalid_python)
             temp_path = Path(f.name)
 
@@ -261,13 +257,13 @@ line6
             # Should fall back to sliding window or whole_file
             assert len(chunks) >= 1
             # Either window (from sliding) or whole_file (small content fallback)
-            assert all(c.chunk_type in ('window', 'whole_file') for c in chunks)
+            assert all(c.chunk_type in ("window", "whole_file") for c in chunks)
         finally:
             temp_path.unlink()
 
     def test_chunk_python_with_decorators(self):
         """Test chunking Python with decorated functions."""
-        code = '''
+        code = """
 @decorator
 @another_decorator
 def decorated_func():
@@ -276,19 +272,19 @@ def decorated_func():
 @class_decorator
 class DecoratedClass:
     pass
-'''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(code)
             temp_path = Path(f.name)
 
         try:
             chunks = self.chunker.chunk_file(temp_path)
             # Should get function and class chunks including decorators
-            func_chunks = [c for c in chunks if c.chunk_type == 'function']
-            class_chunks = [c for c in chunks if c.chunk_type == 'class']
+            func_chunks = [c for c in chunks if c.chunk_type == "function"]
+            [c for c in chunks if c.chunk_type == "class"]
             # At least one function chunk with decorator
             if func_chunks:
-                assert '@decorator' in func_chunks[0].content
+                assert "@decorator" in func_chunks[0].content
         finally:
             temp_path.unlink()
 
@@ -297,10 +293,14 @@ class DecoratedClass:
         # Create a chunker with small max_tokens to trigger truncation
         chunker = FileChunker(max_chunk_tokens=50)
         # Create a class with many methods (large enough to trigger truncation)
-        methods = "\n".join([f"    def method_{i}(self):\n        x = {i}\n        return x\n" for i in range(200)])
-        large_class = f"class VeryLargeClass:\n    '''A very large class with many methods.'''\n{methods}"
+        methods = "\n".join(
+            [f"    def method_{i}(self):\n        x = {i}\n        return x\n" for i in range(200)]
+        )
+        large_class = (
+            f"class VeryLargeClass:\n    '''A very large class with many methods.'''\n{methods}"
+        )
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(large_class)
             temp_path = Path(f.name)
 
@@ -309,7 +309,7 @@ class DecoratedClass:
             # Should get chunks
             assert len(chunks) >= 1
             # At least one class chunk should have truncation indicator
-            class_chunks = [c for c in chunks if c.chunk_type == 'class']
+            class_chunks = [c for c in chunks if c.chunk_type == "class"]
             if class_chunks:
                 # Large class should have "class continues" comment
                 for c in class_chunks:
@@ -322,7 +322,7 @@ class DecoratedClass:
     def test_chunk_markdown_no_headings(self):
         """Test markdown with no headings falls back to sliding window."""
         markdown = "This is just plain text.\nNo headings at all.\nJust paragraphs."
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write(markdown)
             temp_path = Path(f.name)
 
@@ -336,7 +336,7 @@ class DecoratedClass:
     def test_chunk_markdown_heading_hierarchy(self):
         """Test markdown chunks break at same/higher level headings."""
         # Need enough content in each section to meet min_tokens threshold
-        markdown = '''# Top Level
+        markdown = """# Top Level
 
 Content under top level heading. This needs to be long enough
 to satisfy the minimum token requirement for the chunker.
@@ -351,8 +351,8 @@ for the chunker to keep this section. More text here too.
 
 More content under this top level heading. The chunker will
 only keep sections with enough tokens to be meaningful.
-'''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
             f.write(markdown)
             temp_path = Path(f.name)
 
@@ -362,7 +362,7 @@ only keep sections with enough tokens to be meaningful.
             assert len(chunks) >= 1
             # May be section or window depending on size thresholds
             for c in chunks:
-                assert c.chunk_type in ('section', 'window', 'whole_file')
+                assert c.chunk_type in ("section", "window", "whole_file")
         finally:
             temp_path.unlink()
 
@@ -371,7 +371,7 @@ only keep sections with enough tokens to be meaningful.
         # Use high min_tokens to filter more
         chunker = FileChunker(min_chunk_tokens=100)
         small_content = "x\ny\nz"  # Very few tokens
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write(small_content)
             temp_path = Path(f.name)
 
@@ -387,7 +387,7 @@ only keep sections with enough tokens to be meaningful.
         # Create content that produces filtered chunks but is too large for whole_file
         large_content = "\n".join(["x" for _ in range(10000)])  # Many single-char lines
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write(large_content)
             temp_path = Path(f.name)
 
@@ -400,21 +400,21 @@ only keep sections with enough tokens to be meaningful.
 
     def test_chunk_python_async_function(self):
         """Test chunking async functions."""
-        code = '''
+        code = """
 async def async_func():
     await something()
     return True
-'''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(code)
             temp_path = Path(f.name)
 
         try:
             chunks = self.chunker.chunk_file(temp_path)
-            func_chunks = [c for c in chunks if c.chunk_type == 'function']
+            func_chunks = [c for c in chunks if c.chunk_type == "function"]
             # Should find async function
             if func_chunks:
-                assert 'async_func' in [c.name for c in func_chunks]
+                assert "async_func" in [c.name for c in func_chunks]
         finally:
             temp_path.unlink()
 
@@ -438,6 +438,7 @@ class TestTreeSitterChunking:
     def test_tree_sitter_available(self):
         """Test that tree-sitter availability is correctly detected."""
         from file_compass.chunker import TREE_SITTER_AVAILABLE
+
         # This test documents the state - tree-sitter may or may not be installed
         # If you need tree-sitter features, install with: pip install tree-sitter tree-sitter-python etc.
         assert isinstance(TREE_SITTER_AVAILABLE, bool)
@@ -445,7 +446,7 @@ class TestTreeSitterChunking:
     @requires_tree_sitter
     def test_chunk_javascript_file(self):
         """Test chunking JavaScript with tree-sitter."""
-        js_code = '''
+        js_code = """
 function greet(name) {
     // This function greets a person by name
     // It takes a name parameter and returns a greeting string
@@ -475,8 +476,8 @@ class Person {
         return `Name: ${this.name}, Age: ${this.age}, Email: ${this.email}`;
     }
 }
-'''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
             f.write(js_code)
             temp_path = Path(f.name)
 
@@ -491,7 +492,7 @@ class Person {
     @requires_tree_sitter
     def test_chunk_typescript_file(self):
         """Test chunking TypeScript with tree-sitter."""
-        ts_code = '''
+        ts_code = """
 interface User {
     name: string;
     age: number;
@@ -544,8 +545,8 @@ class UserService {
         return this.users.find(u => u.email === email);
     }
 }
-'''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.ts', delete=False) as f:
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".ts", delete=False) as f:
             f.write(ts_code)
             temp_path = Path(f.name)
 
@@ -595,7 +596,7 @@ class Greeter:
         print(f"Farewell: {message}")
         return message
 '''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(python_code)
             temp_path = Path(f.name)
 
@@ -610,7 +611,7 @@ class Greeter:
     @requires_tree_sitter
     def test_chunk_rust_file(self):
         """Test chunking Rust with tree-sitter."""
-        rust_code = '''
+        rust_code = """
 /// Adds two integers together and returns the result.
 /// This function performs basic arithmetic addition.
 fn add(a: i32, b: i32) -> i32 {
@@ -659,8 +660,8 @@ impl Point {
         dist
     }
 }
-'''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.rs', delete=False) as f:
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".rs", delete=False) as f:
             f.write(rust_code)
             temp_path = Path(f.name)
 
@@ -674,7 +675,7 @@ impl Point {
     @requires_tree_sitter
     def test_chunk_go_file(self):
         """Test chunking Go with tree-sitter."""
-        go_code = '''package main
+        go_code = """package main
 
 import (
     "fmt"
@@ -735,8 +736,8 @@ func (p Person) GetInfo() string {
     }
     return fmt.Sprintf("Name: %s, Age: %d, Status: %s", p.Name, p.Age, status)
 }
-'''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.go', delete=False) as f:
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".go", delete=False) as f:
             f.write(go_code)
             temp_path = Path(f.name)
 
@@ -794,7 +795,7 @@ class Calculator:
         self.last_result = result
         return result
 '''
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(python_code)
             temp_path = Path(f.name)
 
@@ -819,7 +820,7 @@ class Calculator:
             line_start=1,
             line_end=5,
             preview="test",
-            parent_class="MyClass"
+            parent_class="MyClass",
         )
         assert chunk.qualified_name == "MyClass.my_method"
 
@@ -830,7 +831,7 @@ class Calculator:
             name="my_func",
             line_start=1,
             line_end=5,
-            preview="test"
+            preview="test",
         )
         assert func_chunk.qualified_name == "my_func"
 
@@ -844,7 +845,7 @@ class Calculator:
         """Test fallback to sliding window on tree-sitter parse failure."""
         # Invalid JS that might confuse tree-sitter
         invalid_js = "function {{{broken code here}}}"
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
             f.write(invalid_js)
             temp_path = Path(f.name)
 

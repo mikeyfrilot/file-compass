@@ -3,11 +3,11 @@ File Compass - Result Explainer Module
 Provides explanations for why search results matched and visual code previews.
 """
 
+import logging
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Tuple
 from pathlib import Path
-import logging
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MatchReason:
     """A single reason why a result matched."""
+
     reason_type: str  # "exact", "semantic", "filename", "structure"
     description: str
     confidence: float  # 0-1
@@ -25,6 +26,7 @@ class MatchReason:
 @dataclass
 class ExplainedResult:
     """Search result with explanation of why it matched."""
+
     relevance: float
     reasons: List[MatchReason]
     summary: str  # Human-readable summary
@@ -39,16 +41,17 @@ class ExplainedResult:
                     "description": r.description,
                     "confidence": round(r.confidence, 2),
                     "matched_text": r.matched_text,
-                    "location": r.location
+                    "location": r.location,
                 }
                 for r in self.reasons
-            ]
+            ],
         }
 
 
 @dataclass
 class VisualPreview:
     """Rich visual preview of a code match."""
+
     content: str
     line_start: int
     line_end: int
@@ -65,7 +68,7 @@ class VisualPreview:
             "highlight_lines": self.highlight_lines,
             "language": self.language,
             "truncated": self.truncated,
-            "total_lines": self.total_lines
+            "total_lines": self.total_lines,
         }
 
 
@@ -101,7 +104,7 @@ class ResultExplainer:
         result_path: str,
         chunk_name: Optional[str],
         chunk_type: str,
-        relevance: float
+        relevance: float,
     ) -> ExplainedResult:
         """
         Generate explanation for why a result matched a query.
@@ -118,53 +121,61 @@ class ResultExplainer:
             ExplainedResult with reasons and summary
         """
         reasons = []
-        query_lower = query.lower()
+        query.lower()
         query_words = set(self._tokenize(query))
 
         # Check for exact matches in preview
         exact_matches = self._find_exact_matches(query_words, result_preview)
         for match, count in exact_matches:
-            reasons.append(MatchReason(
-                reason_type="exact",
-                description=f"Contains \"{match}\"" + (f" ({count}x)" if count > 1 else ""),
-                confidence=min(0.9, 0.5 + count * 0.1),
-                matched_text=match,
-                location="content"
-            ))
+            reasons.append(
+                MatchReason(
+                    reason_type="exact",
+                    description=f'Contains "{match}"' + (f" ({count}x)" if count > 1 else ""),
+                    confidence=min(0.9, 0.5 + count * 0.1),
+                    matched_text=match,
+                    location="content",
+                )
+            )
 
         # Check for matches in filename/path
         filename = Path(result_path).name
         path_matches = self._find_exact_matches(query_words, filename)
         for match, count in path_matches:
-            reasons.append(MatchReason(
-                reason_type="filename",
-                description=f"Filename contains \"{match}\"",
-                confidence=0.85,
-                matched_text=match,
-                location="filename"
-            ))
+            reasons.append(
+                MatchReason(
+                    reason_type="filename",
+                    description=f'Filename contains "{match}"',
+                    confidence=0.85,
+                    matched_text=match,
+                    location="filename",
+                )
+            )
 
         # Check for matches in chunk name (function/class name)
         if chunk_name:
             name_matches = self._find_exact_matches(query_words, chunk_name)
             for match, count in name_matches:
-                reasons.append(MatchReason(
-                    reason_type="structure",
-                    description=f"{chunk_type.title()} name contains \"{match}\"",
-                    confidence=0.9,
-                    matched_text=match,
-                    location=f"{chunk_type} name"
-                ))
+                reasons.append(
+                    MatchReason(
+                        reason_type="structure",
+                        description=f'{chunk_type.title()} name contains "{match}"',
+                        confidence=0.9,
+                        matched_text=match,
+                        location=f"{chunk_type} name",
+                    )
+                )
 
         # Semantic match (when no exact matches explain the high relevance)
         exact_confidence = max([r.confidence for r in reasons]) if reasons else 0
         if relevance > 0.5 and (not reasons or exact_confidence < relevance - 0.1):
-            reasons.append(MatchReason(
-                reason_type="semantic",
-                description="Semantically related to query",
-                confidence=relevance,
-                location="content"
-            ))
+            reasons.append(
+                MatchReason(
+                    reason_type="semantic",
+                    description="Semantically related to query",
+                    confidence=relevance,
+                    location="content",
+                )
+            )
 
         # Sort by confidence
         reasons.sort(key=lambda r: r.confidence, reverse=True)
@@ -175,20 +186,16 @@ class ResultExplainer:
         return ExplainedResult(
             relevance=relevance,
             reasons=reasons[:5],  # Top 5 reasons
-            summary=summary
+            summary=summary,
         )
 
     def _tokenize(self, text: str) -> List[str]:
         """Extract meaningful tokens from text."""
         # Split on non-alphanumeric, filter short tokens
-        tokens = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', text.lower())
+        tokens = re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", text.lower())
         return [t for t in tokens if len(t) >= 2]
 
-    def _find_exact_matches(
-        self,
-        query_words: set,
-        text: str
-    ) -> List[Tuple[str, int]]:
+    def _find_exact_matches(self, query_words: set, text: str) -> List[Tuple[str, int]]:
         """Find query words that appear in text."""
         matches = []
         text_lower = text.lower()
@@ -225,9 +232,9 @@ class ResultExplainer:
 
         if exact:
             if len(exact) == 1:
-                parts.append(f"contains \"{exact[0].matched_text}\"")
+                parts.append(f'contains "{exact[0].matched_text}"')
             else:
-                words = [f"\"{r.matched_text}\"" for r in exact[:3]]
+                words = [f'"{r.matched_text}"' for r in exact[:3]]
                 parts.append(f"contains {', '.join(words)}")
 
         if semantic and not exact:
@@ -276,7 +283,7 @@ class VisualPreviewGenerator:
         line_start: int,
         line_end: int,
         query: Optional[str] = None,
-        highlight_matches: bool = True
+        highlight_matches: bool = True,
     ) -> Optional[VisualPreview]:
         """
         Generate a visual preview of code with context and highlighting.
@@ -316,14 +323,14 @@ class VisualPreviewGenerator:
                 preview_end = min(total_lines, preview_start + self.max_preview_lines - 1)
 
             # Extract lines (convert to 0-indexed)
-            preview_lines = lines[preview_start - 1:preview_end]
+            preview_lines = lines[preview_start - 1 : preview_end]
 
             # Find lines to highlight (the actual match, not context)
             highlight_lines = list(range(line_start, line_end + 1))
 
             # If query provided, also highlight lines containing query terms
             if query and highlight_matches:
-                query_words = set(re.findall(r'[a-zA-Z_][a-zA-Z0-9_]+', query.lower()))
+                query_words = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]+", query.lower()))
                 for i, line in enumerate(preview_lines, start=preview_start):
                     if i not in highlight_lines:
                         line_lower = line.lower()
@@ -340,10 +347,7 @@ class VisualPreviewGenerator:
                 formatted_lines.append(f"{line_num} {marker}│ {line}")
 
             # Check if truncated
-            truncated = (
-                preview_start > 1 or
-                preview_end < total_lines
-            )
+            truncated = preview_start > 1 or preview_end < total_lines
 
             return VisualPreview(
                 content="\n".join(formatted_lines),
@@ -352,7 +356,7 @@ class VisualPreviewGenerator:
                 highlight_lines=sorted(set(highlight_lines)),
                 language=language,
                 truncated=truncated,
-                total_lines=total_lines
+                total_lines=total_lines,
             )
 
         except Exception as e:
@@ -360,11 +364,7 @@ class VisualPreviewGenerator:
             return None
 
     def generate_compact_preview(
-        self,
-        content_preview: str,
-        file_path: str,
-        line_start: int,
-        line_end: int
+        self, content_preview: str, file_path: str, line_start: int, line_end: int
     ) -> Dict[str, Any]:
         """
         Generate a compact preview from pre-stored content preview.
@@ -396,5 +396,5 @@ class VisualPreviewGenerator:
             "line_start": line_start,
             "line_end": line_start + len(lines) - 1,
             "language": language,
-            "truncated": content_preview.endswith("...")
+            "truncated": content_preview.endswith("..."),
         }

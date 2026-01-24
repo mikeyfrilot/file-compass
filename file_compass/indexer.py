@@ -3,23 +3,23 @@ File Compass - Indexer Module
 HNSW index management with SQLite metadata storage.
 """
 
-import sqlite3
 import asyncio
+import logging
+import sqlite3
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import hnswlib
 import numpy as np
-from pathlib import Path
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime
-import logging
-import json
 
 from . import DEFAULT_DB_PATH, DEFAULT_INDEX_PATH, DEFAULT_SQLITE_PATH
+from .chunker import FileChunker
 from .config import get_config
 from .embedder import Embedder
-from .scanner import FileScanner, ScannedFile
-from .chunker import FileChunker, Chunk
 from .merkle import MerkleTree, compute_chunk_hash
+from .scanner import FileScanner
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ DEFAULT_MERKLE_PATH = DEFAULT_DB_PATH / "merkle_state.json"
 @dataclass
 class SearchResult:
     """Result from semantic search."""
+
     path: str
     relative_path: str
     file_type: str
@@ -53,7 +54,7 @@ class FileIndex:
         db_path: Optional[Path] = None,
         index_path: Optional[Path] = None,
         sqlite_path: Optional[Path] = None,
-        merkle_path: Optional[Path] = None
+        merkle_path: Optional[Path] = None,
     ):
         config = get_config()
 
@@ -147,9 +148,7 @@ class FileIndex:
             else:
                 logger.info("Creating new HNSW index")
                 self._index.init_index(
-                    max_elements=self.max_elements,
-                    ef_construction=self.ef_construction,
-                    M=self.M
+                    max_elements=self.max_elements, ef_construction=self.ef_construction, M=self.M
                 )
                 self._index.set_ef(self.ef_search)
 
@@ -164,8 +163,7 @@ class FileIndex:
             WHERE embedding_id IS NOT NULL
         """)
         self._id_to_chunk = {
-            row["embedding_id"]: (row["file_id"], row["chunk_index"])
-            for row in cursor
+            row["embedding_id"]: (row["file_id"], row["chunk_index"]) for row in cursor
         }
         logger.info(f"Loaded {len(self._id_to_chunk)} chunk mappings")
 
@@ -176,9 +174,7 @@ class FileIndex:
             logger.info(f"Saved index to {self.index_path}")
 
     async def build_index(
-        self,
-        directories: Optional[List[str]] = None,
-        show_progress: bool = True
+        self, directories: Optional[List[str]] = None, show_progress: bool = True
     ) -> Dict[str, Any]:
         """
         Build or rebuild the complete index.
@@ -204,9 +200,7 @@ class FileIndex:
         # Re-create HNSW index
         self._index = hnswlib.Index(space=self.space, dim=self.dim)
         self._index.init_index(
-            max_elements=self.max_elements,
-            ef_construction=self.ef_construction,
-            M=self.M
+            max_elements=self.max_elements, ef_construction=self.ef_construction, M=self.M
         )
         self._index.set_ef(self.ef_search)
         self._id_to_chunk = {}
@@ -232,20 +226,23 @@ class FileIndex:
 
         for i, scanned_file in enumerate(all_files):
             # Insert file record
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 INSERT INTO files (path, relative_path, file_type, size_bytes,
                                    modified_at, content_hash, git_repo, is_git_tracked)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                str(scanned_file.path),
-                scanned_file.relative_path,
-                scanned_file.file_type,
-                scanned_file.size_bytes,
-                scanned_file.modified_at.isoformat(),
-                scanned_file.content_hash,
-                scanned_file.git_repo,
-                1 if scanned_file.is_git_tracked else 0
-            ))
+            """,
+                (
+                    str(scanned_file.path),
+                    scanned_file.relative_path,
+                    scanned_file.file_type,
+                    scanned_file.size_bytes,
+                    scanned_file.modified_at.isoformat(),
+                    scanned_file.content_hash,
+                    scanned_file.git_repo,
+                    1 if scanned_file.is_git_tracked else 0,
+                ),
+            )
             file_id = cursor.lastrowid
 
             # Chunk the file
@@ -256,10 +253,7 @@ class FileIndex:
                 chunks = []
 
             # Update total_chunks
-            conn.execute(
-                "UPDATE files SET total_chunks = ? WHERE id = ?",
-                (len(chunks), file_id)
-            )
+            conn.execute("UPDATE files SET total_chunks = ? WHERE id = ?", (len(chunks), file_id))
 
             # Collect chunks for batch embedding
             chunk_hashes = []
@@ -275,7 +269,7 @@ class FileIndex:
                 scanned_file.relative_path,
                 scanned_file.content_hash,
                 chunk_hashes,
-                scanned_file.modified_at.timestamp()
+                scanned_file.modified_at.timestamp(),
             )
 
             files_indexed += 1
@@ -291,36 +285,34 @@ class FileIndex:
         # Generate embeddings in batches
         if all_texts:
             embeddings = await self.embedder.embed_batch(
-                all_texts,
-                batch_size=batch_size,
-                show_progress=show_progress
+                all_texts, batch_size=batch_size, show_progress=show_progress
             )
 
             # Add to HNSW and SQLite
             for idx, (file_id, chunk_idx, chunk) in enumerate(all_metadata):
                 # Insert chunk record
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT INTO chunks (file_id, chunk_index, chunk_type, name,
                                        line_start, line_end, content_preview,
                                        token_count, embedding_id)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    file_id,
-                    chunk_idx,
-                    chunk.chunk_type,
-                    chunk.name,
-                    chunk.line_start,
-                    chunk.line_end,
-                    chunk.preview,
-                    chunk.token_estimate,
-                    embedding_id
-                ))
+                """,
+                    (
+                        file_id,
+                        chunk_idx,
+                        chunk.chunk_type,
+                        chunk.name,
+                        chunk.line_start,
+                        chunk.line_end,
+                        chunk.preview,
+                        chunk.token_estimate,
+                        embedding_id,
+                    ),
+                )
 
                 # Add to HNSW
-                self._index.add_items(
-                    embeddings[idx:idx+1],
-                    np.array([embedding_id])
-                )
+                self._index.add_items(embeddings[idx : idx + 1], np.array([embedding_id]))
                 self._id_to_chunk[embedding_id] = (file_id, chunk_idx)
 
                 embedding_id += 1
@@ -336,15 +328,15 @@ class FileIndex:
         duration = (datetime.now() - start_time).total_seconds()
         conn.execute(
             "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-            ("last_build", datetime.now().isoformat())
+            ("last_build", datetime.now().isoformat()),
         )
         conn.execute(
             "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-            ("files_count", str(files_indexed))
+            ("files_count", str(files_indexed)),
         )
         conn.execute(
             "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-            ("chunks_count", str(chunks_indexed))
+            ("chunks_count", str(chunks_indexed)),
         )
         conn.commit()
 
@@ -352,11 +344,11 @@ class FileIndex:
             "files_indexed": files_indexed,
             "chunks_indexed": chunks_indexed,
             "duration_seconds": duration,
-            "index_path": str(self.index_path)
+            "index_path": str(self.index_path),
         }
 
         if show_progress:
-            print(f"\nIndexing complete!")
+            print("\nIndexing complete!")
             print(f"  Files: {files_indexed}")
             print(f"  Chunks: {chunks_indexed}")
             print(f"  Duration: {duration:.1f}s")
@@ -364,9 +356,7 @@ class FileIndex:
         return stats
 
     async def incremental_update(
-        self,
-        directories: Optional[List[str]] = None,
-        show_progress: bool = True
+        self, directories: Optional[List[str]] = None, show_progress: bool = True
     ) -> Dict[str, Any]:
         """
         Incrementally update the index, only processing changed files.
@@ -407,7 +397,7 @@ class FileIndex:
                 scanned_file.relative_path,
                 scanned_file.content_hash,
                 chunk_hashes,
-                scanned_file.modified_at.timestamp()
+                scanned_file.modified_at.timestamp(),
             )
 
         # Quick check - if root hashes match, no changes
@@ -420,14 +410,16 @@ class FileIndex:
                 "files_removed": 0,
                 "files_modified": 0,
                 "chunks_added": 0,
-                "duration_seconds": duration
+                "duration_seconds": duration,
             }
 
         # Find what changed
         added, removed, modified = new_merkle.diff(old_merkle)
 
         if show_progress:
-            print(f"Incremental update: {len(added)} added, {len(removed)} removed, {len(modified)} modified")
+            print(
+                f"Incremental update: {len(added)} added, {len(removed)} removed, {len(modified)} modified"
+            )
 
         # Load existing index
         conn = self._get_conn()
@@ -444,8 +436,7 @@ class FileIndex:
         for rel_path in removed:
             # Find file in DB and remove
             row = conn.execute(
-                "SELECT id FROM files WHERE relative_path = ?",
-                (rel_path,)
+                "SELECT id FROM files WHERE relative_path = ?", (rel_path,)
             ).fetchone()
             if row:
                 file_id = row[0]
@@ -472,28 +463,30 @@ class FileIndex:
             # If modified, remove old entry first
             if rel_path in modified:
                 row = conn.execute(
-                    "SELECT id FROM files WHERE relative_path = ?",
-                    (rel_path,)
+                    "SELECT id FROM files WHERE relative_path = ?", (rel_path,)
                 ).fetchone()
                 if row:
                     conn.execute("DELETE FROM chunks WHERE file_id = ?", (row[0],))
                     conn.execute("DELETE FROM files WHERE id = ?", (row[0],))
 
             # Insert new file record
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 INSERT INTO files (path, relative_path, file_type, size_bytes,
                                    modified_at, content_hash, git_repo, is_git_tracked)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                str(scanned_file.path),
-                scanned_file.relative_path,
-                scanned_file.file_type,
-                scanned_file.size_bytes,
-                scanned_file.modified_at.isoformat(),
-                scanned_file.content_hash,
-                scanned_file.git_repo,
-                1 if scanned_file.is_git_tracked else 0
-            ))
+            """,
+                (
+                    str(scanned_file.path),
+                    scanned_file.relative_path,
+                    scanned_file.file_type,
+                    scanned_file.size_bytes,
+                    scanned_file.modified_at.isoformat(),
+                    scanned_file.content_hash,
+                    scanned_file.git_repo,
+                    1 if scanned_file.is_git_tracked else 0,
+                ),
+            )
             file_id = cursor.lastrowid
 
             # Chunk the file
@@ -503,10 +496,7 @@ class FileIndex:
                 logger.warning(f"Failed to chunk {scanned_file.path}: {e}")
                 chunks = []
 
-            conn.execute(
-                "UPDATE files SET total_chunks = ? WHERE id = ?",
-                (len(chunks), file_id)
-            )
+            conn.execute("UPDATE files SET total_chunks = ? WHERE id = ?", (len(chunks), file_id))
 
             # Collect for batch embedding
             for chunk_idx, chunk in enumerate(chunks):
@@ -523,37 +513,34 @@ class FileIndex:
             if show_progress:
                 print(f"Generating embeddings for {len(all_texts)} chunks...")
 
-            embeddings = await self.embedder.embed_batch(
-                all_texts,
-                show_progress=show_progress
-            )
+            embeddings = await self.embedder.embed_batch(all_texts, show_progress=show_progress)
 
             # Add to HNSW and SQLite
             for idx, (file_id, chunk_idx, chunk) in enumerate(all_metadata):
                 embedding_id = next_embedding_id + idx
 
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT INTO chunks (file_id, chunk_index, chunk_type, name,
                                        line_start, line_end, content_preview,
                                        token_count, embedding_id)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    file_id,
-                    chunk_idx,
-                    chunk.chunk_type,
-                    chunk.name,
-                    chunk.line_start,
-                    chunk.line_end,
-                    chunk.preview,
-                    chunk.token_estimate,
-                    embedding_id
-                ))
+                """,
+                    (
+                        file_id,
+                        chunk_idx,
+                        chunk.chunk_type,
+                        chunk.name,
+                        chunk.line_start,
+                        chunk.line_end,
+                        chunk.preview,
+                        chunk.token_estimate,
+                        embedding_id,
+                    ),
+                )
 
                 # Add to HNSW (incremental)
-                index.add_items(
-                    embeddings[idx:idx+1],
-                    np.array([embedding_id])
-                )
+                index.add_items(embeddings[idx : idx + 1], np.array([embedding_id]))
                 self._id_to_chunk[embedding_id] = (file_id, chunk_idx)
 
                 chunks_added += 1
@@ -568,7 +555,7 @@ class FileIndex:
         duration = (datetime.now() - start_time).total_seconds()
         conn.execute(
             "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-            ("last_update", datetime.now().isoformat())
+            ("last_update", datetime.now().isoformat()),
         )
         conn.commit()
 
@@ -577,11 +564,11 @@ class FileIndex:
             "files_removed": len(removed),
             "files_modified": len(modified),
             "chunks_added": chunks_added,
-            "duration_seconds": duration
+            "duration_seconds": duration,
         }
 
         if show_progress:
-            print(f"\nIncremental update complete!")
+            print("\nIncremental update complete!")
             print(f"  Added: {len(added)}, Removed: {len(removed)}, Modified: {len(modified)}")
             print(f"  New chunks: {chunks_added}")
             print(f"  Duration: {duration:.1f}s")
@@ -595,7 +582,7 @@ class FileIndex:
         file_types: Optional[List[str]] = None,
         directory: Optional[str] = None,
         git_only: bool = False,
-        min_relevance: float = 0.3
+        min_relevance: float = 0.3,
     ) -> List[SearchResult]:
         """
         Search the index for relevant files/chunks.
@@ -623,10 +610,7 @@ class FileIndex:
 
         # Search HNSW (get more candidates for filtering)
         k_search = min(top_k * 5, index.get_current_count())
-        labels, distances = index.knn_query(
-            query_embedding.reshape(1, -1),
-            k=k_search
-        )
+        labels, distances = index.knn_query(query_embedding.reshape(1, -1), k=k_search)
 
         # Convert distances to similarities (hnswlib returns 1-cosine for cosine space)
         similarities = 1 - distances[0]
@@ -644,13 +628,16 @@ class FileIndex:
             file_id, chunk_idx = self._id_to_chunk[embedding_id]
 
             # Fetch file and chunk info
-            row = conn.execute("""
+            row = conn.execute(
+                """
                 SELECT f.*, c.chunk_type, c.name as chunk_name,
                        c.line_start, c.line_end, c.content_preview
                 FROM files f
                 JOIN chunks c ON c.file_id = f.id
                 WHERE f.id = ? AND c.chunk_index = ?
-            """, (file_id, chunk_idx)).fetchone()
+            """,
+                (file_id, chunk_idx),
+            ).fetchone()
 
             if not row:
                 continue
@@ -665,19 +652,21 @@ class FileIndex:
             if git_only and not row["is_git_tracked"]:
                 continue
 
-            results.append(SearchResult(
-                path=row["path"],
-                relative_path=row["relative_path"],
-                file_type=row["file_type"],
-                chunk_type=row["chunk_type"],
-                chunk_name=row["chunk_name"],
-                line_start=row["line_start"],
-                line_end=row["line_end"],
-                preview=row["content_preview"],
-                relevance=float(similarity),
-                modified_at=datetime.fromisoformat(row["modified_at"]),
-                git_tracked=bool(row["is_git_tracked"])
-            ))
+            results.append(
+                SearchResult(
+                    path=row["path"],
+                    relative_path=row["relative_path"],
+                    file_type=row["file_type"],
+                    chunk_type=row["chunk_type"],
+                    chunk_name=row["chunk_name"],
+                    line_start=row["line_start"],
+                    line_end=row["line_end"],
+                    preview=row["content_preview"],
+                    relevance=float(similarity),
+                    modified_at=datetime.fromisoformat(row["modified_at"]),
+                    git_tracked=bool(row["is_git_tracked"]),
+                )
+            )
 
             if len(results) >= top_k:
                 break
@@ -692,16 +681,12 @@ class FileIndex:
         chunks_count = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
 
         # Get last build time
-        row = conn.execute(
-            "SELECT value FROM index_meta WHERE key = 'last_build'"
-        ).fetchone()
+        row = conn.execute("SELECT value FROM index_meta WHERE key = 'last_build'").fetchone()
         last_build = row[0] if row else None
 
         # Get file type distribution
         type_dist = {}
-        for row in conn.execute(
-            "SELECT file_type, COUNT(*) as cnt FROM files GROUP BY file_type"
-        ):
+        for row in conn.execute("SELECT file_type, COUNT(*) as cnt FROM files GROUP BY file_type"):
             type_dist[row["file_type"]] = row["cnt"]
 
         return {
@@ -709,8 +694,10 @@ class FileIndex:
             "chunks_indexed": chunks_count,
             "last_build": last_build,
             "index_path": str(self.index_path),
-            "index_size_mb": self.index_path.stat().st_size / 1024 / 1024 if self.index_path.exists() else 0,
-            "file_types": type_dist
+            "index_size_mb": self.index_path.stat().st_size / 1024 / 1024
+            if self.index_path.exists()
+            else 0,
+            "file_types": type_dist,
         }
 
     async def close(self):
@@ -739,9 +726,8 @@ if __name__ == "__main__":
         index = FileIndex()
 
         print("Building index...")
-        stats = await index.build_index(
-            directories=["F:/AI/mcp-tool-shop/file_compass"],
-            show_progress=True
+        await index.build_index(
+            directories=["F:/AI/mcp-tool-shop/file_compass"], show_progress=True
         )
 
         print("\nTesting search...")

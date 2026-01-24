@@ -10,14 +10,14 @@ Usage:
     python gateway.py --test       # Run test queries
 """
 
-import asyncio
 import argparse
+import asyncio
 import logging
 import re
 import subprocess
 import sys
-from typing import Optional, List, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # MCP imports
 try:
@@ -29,16 +29,16 @@ except ImportError:
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from file_compass.indexer import FileIndex, SearchResult, get_index
 from file_compass.config import get_config
 from file_compass.explainer import ResultExplainer, VisualPreviewGenerator
-from file_compass.quick_index import QuickIndex, get_quick_index
+from file_compass.indexer import FileIndex
+from file_compass.quick_index import get_quick_index
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stderr
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stderr,
 )
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ async def get_index_instance() -> FileIndex:
         # Load existing index if available
         if _index.index_path.exists():
             _index._get_index()  # Load HNSW
-            _index._get_conn()   # Load SQLite
+            _index._get_conn()  # Load SQLite
 
         return _index
 
@@ -77,6 +77,7 @@ async def get_index_instance() -> FileIndex:
 # =============================================================================
 # MCP TOOLS
 # =============================================================================
+
 
 @mcp.tool()
 async def file_search(
@@ -86,7 +87,7 @@ async def file_search(
     directory: Optional[str] = None,
     git_only: bool = False,
     min_relevance: float = 0.3,
-    explain: bool = True
+    explain: bool = True,
 ) -> Dict[str, Any]:
     """
     Search for files using semantic search.
@@ -124,7 +125,7 @@ async def file_search(
     if status["files_indexed"] == 0:
         return {
             "error": "No files indexed yet",
-            "hint": "Run: python -m file_compass.cli index -d \"F:/AI\""
+            "hint": 'Run: python -m file_compass.cli index -d "F:/AI"',
         }
 
     # Parse and validate file_types
@@ -143,7 +144,7 @@ async def file_search(
         file_types=types_list,
         directory=directory,
         git_only=git_only,
-        min_relevance=min_relevance
+        min_relevance=min_relevance,
     )
 
     # Format results with explanations
@@ -158,7 +159,7 @@ async def file_search(
             "lines": f"{r.line_start}-{r.line_end}",
             "relevance": round(r.relevance, 3),
             "preview": r.preview[:200] + "..." if len(r.preview) > 200 else r.preview,
-            "git_tracked": r.git_tracked
+            "git_tracked": r.git_tracked,
         }
 
         # Add explanation if requested
@@ -169,14 +170,14 @@ async def file_search(
                 result_path=r.path,
                 chunk_name=r.chunk_name,
                 chunk_type=r.chunk_type,
-                relevance=r.relevance
+                relevance=r.relevance,
             )
             match_data["why"] = explanation.summary
             match_data["match_reasons"] = [
                 {
                     "type": reason.reason_type,
                     "detail": reason.description,
-                    "confidence": round(reason.confidence, 2)
+                    "confidence": round(reason.confidence, 2),
                 }
                 for reason in explanation.reasons[:3]  # Top 3 reasons
             ]
@@ -188,7 +189,7 @@ async def file_search(
         "results": matches,
         "count": len(matches),
         "total_indexed": status["files_indexed"],
-        "hint": f"Found {len(matches)} results. Use Read tool to view full content."
+        "hint": f"Found {len(matches)} results. Use Read tool to view full content.",
     }
 
 
@@ -215,7 +216,7 @@ async def file_preview(
     line_start: Optional[int] = None,
     line_end: Optional[int] = None,
     query: Optional[str] = None,
-    context_lines: int = 3
+    context_lines: int = 3,
 ) -> Dict[str, Any]:
     """
     Get a visual code preview from a specific file.
@@ -256,9 +257,7 @@ async def file_preview(
 
         # Security: Validate path is within allowed directories
         if not _is_path_safe(file_path, config):
-            return {
-                "error": "Access denied: path is outside allowed directories"
-            }
+            return {"error": "Access denied: path is outside allowed directories"}
 
         if not file_path.exists():
             return {"error": f"File not found: {path}"}
@@ -271,7 +270,7 @@ async def file_preview(
                 line_start=line_start,
                 line_end=line_end or line_start,
                 query=query,
-                highlight_matches=query is not None
+                highlight_matches=query is not None,
             )
 
             if preview:
@@ -282,7 +281,7 @@ async def file_preview(
                     "language": preview.language,
                     "highlight_lines": preview.highlight_lines,
                     "total_lines": preview.total_lines,
-                    "truncated": preview.truncated
+                    "truncated": preview.truncated,
                 }
 
         # Fallback: Read full file (limited)
@@ -323,7 +322,7 @@ async def file_preview(
             "language": language,
             "highlight_lines": [],
             "total_lines": total_lines,
-            "truncated": truncated
+            "truncated": truncated,
         }
 
     except Exception as e:
@@ -348,14 +347,13 @@ async def file_index_status() -> Dict[str, Any]:
         "index_size_mb": round(status["index_size_mb"], 2),
         "last_build": status["last_build"],
         "file_types": status["file_types"],
-        "hint": "Use file_search() to find files, or file_index_scan() to rebuild"
+        "hint": "Use file_search() to find files, or file_index_scan() to rebuild",
     }
 
 
 @mcp.tool()
 async def file_index_scan(
-    directories: Optional[str] = None,
-    force_rebuild: bool = False
+    directories: Optional[str] = None, force_rebuild: bool = False
 ) -> Dict[str, Any]:
     """
     Scan directories and build/rebuild the file index.
@@ -393,10 +391,7 @@ async def file_index_scan(
                 continue  # Skip invalid paths
 
         if not validated_dirs:
-            return {
-                "success": False,
-                "error": "No valid directories provided"
-            }
+            return {"success": False, "error": "No valid directories provided"}
         dir_list = validated_dirs
     else:
         dir_list = config.directories
@@ -404,7 +399,7 @@ async def file_index_scan(
     try:
         stats = await index.build_index(
             directories=dir_list,
-            show_progress=False  # Can't show progress over MCP
+            show_progress=False,  # Can't show progress over MCP
         )
 
         return {
@@ -413,7 +408,7 @@ async def file_index_scan(
             "chunks_indexed": stats["chunks_indexed"],
             "duration_seconds": round(stats["duration_seconds"], 1),
             "directories": dir_list,
-            "hint": "Index built! Use file_search() to find files."
+            "hint": "Index built! Use file_search() to find files.",
         }
 
     except Exception as e:
@@ -421,16 +416,13 @@ async def file_index_scan(
         return {
             "success": False,
             "error": "Indexing failed",
-            "hint": "Make sure Ollama is running with nomic-embed-text model"
+            "hint": "Make sure Ollama is running with nomic-embed-text model",
         }
 
 
 @mcp.tool()
 async def file_quick_search(
-    query: str,
-    top_k: int = 15,
-    file_types: Optional[str] = None,
-    recent_days: Optional[int] = None
+    query: str, top_k: int = 15, file_types: Optional[str] = None, recent_days: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Fast search by filename and symbol names (instant, no AI embeddings).
@@ -477,10 +469,7 @@ async def file_quick_search(
 
     # Search
     results = quick_index.search(
-        query=query,
-        top_k=top_k,
-        file_types=types_list,
-        recent_days=recent_days
+        query=query, top_k=top_k, file_types=types_list, recent_days=recent_days
     )
 
     # Format results
@@ -492,7 +481,7 @@ async def file_quick_search(
             "file_type": r.file_type,
             "match_type": r.match_type,
             "match_text": r.match_text,
-            "score": round(r.score, 2)
+            "score": round(r.score, 2),
         }
         if r.line_number:
             match_data["line"] = r.line_number
@@ -504,11 +493,8 @@ async def file_quick_search(
         "query": query,
         "results": matches,
         "count": len(matches),
-        "index_stats": {
-            "files": status["files_indexed"],
-            "symbols": status["symbols_indexed"]
-        },
-        "hint": "For semantic search, use file_search() instead"
+        "index_stats": {"files": status["files_indexed"], "symbols": status["symbols_indexed"]},
+        "hint": "For semantic search, use file_search() instead",
     }
 
 
@@ -528,9 +514,7 @@ async def file_quick_index_build() -> Dict[str, Any]:
 
     try:
         stats = await quick_index.build_quick_index(
-            directories=config.directories,
-            extract_symbols=True,
-            show_progress=False
+            directories=config.directories, extract_symbols=True, show_progress=False
         )
 
         return {
@@ -538,23 +522,17 @@ async def file_quick_index_build() -> Dict[str, Any]:
             "files_indexed": stats["files_indexed"],
             "symbols_extracted": stats["symbols_extracted"],
             "duration_seconds": round(stats["duration_seconds"], 2),
-            "hint": "Quick index built! Use file_quick_search() for instant results."
+            "hint": "Quick index built! Use file_quick_search() for instant results.",
         }
 
     except Exception as e:
         logger.error(f"Quick indexing failed: {e}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}
 
 
 @mcp.tool()
 async def file_actions(
-    path: str,
-    action: str,
-    line_start: Optional[int] = None,
-    line_end: Optional[int] = None
+    path: str, action: str, line_start: Optional[int] = None, line_end: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Perform follow-up actions on a search result.
@@ -589,10 +567,7 @@ async def file_actions(
 
     valid_actions = ["context", "usages", "related", "history", "symbols"]
     if action not in valid_actions:
-        return {
-            "error": "Invalid action",
-            "available_actions": valid_actions
-        }
+        return {"error": "Invalid action", "available_actions": valid_actions}
 
     if line_start is not None and (not isinstance(line_start, int) or line_start < 1):
         return {"error": "line_start must be a positive integer"}
@@ -604,9 +579,7 @@ async def file_actions(
 
     # Security check
     if not _is_path_safe(file_path, config):
-        return {
-            "error": "Access denied: path is outside allowed directories"
-        }
+        return {"error": "Access denied: path is outside allowed directories"}
 
     if not file_path.exists():
         return {"error": "File not found"}
@@ -627,7 +600,9 @@ async def file_actions(
         return {"error": "Action failed"}
 
 
-async def _action_context(file_path: Path, line_start: Optional[int], line_end: Optional[int]) -> Dict[str, Any]:
+async def _action_context(
+    file_path: Path, line_start: Optional[int], line_end: Optional[int]
+) -> Dict[str, Any]:
     """Get surrounding code context."""
     content = file_path.read_text(encoding="utf-8", errors="replace")
     lines = content.split("\n")
@@ -655,7 +630,7 @@ async def _action_context(file_path: Path, line_start: Optional[int], line_end: 
         "context_range": f"{context_start}-{context_end}",
         "focus_range": f"{line_start}-{line_end}",
         "content": "\n".join(preview_lines),
-        "total_lines": total_lines
+        "total_lines": total_lines,
     }
 
 
@@ -665,7 +640,6 @@ async def _action_usages(file_path: Path) -> Dict[str, Any]:
 
     # Search for imports/usages of this file
     filename = file_path.stem  # e.g., "embedder" from "embedder.py"
-    relative_path = file_path.name
 
     # Search for import patterns
     import_patterns = [
@@ -678,18 +652,16 @@ async def _action_usages(file_path: Path) -> Dict[str, Any]:
 
     usages = []
     for pattern in import_patterns[:2]:  # Limit searches
-        results = await index.search(
-            query=pattern,
-            top_k=10,
-            min_relevance=0.4
-        )
+        results = await index.search(query=pattern, top_k=10, min_relevance=0.4)
         for r in results:
             if r.path != str(file_path):  # Don't include self
-                usages.append({
-                    "path": r.relative_path,
-                    "lines": f"{r.line_start}-{r.line_end}",
-                    "preview": r.preview[:100]
-                })
+                usages.append(
+                    {
+                        "path": r.relative_path,
+                        "lines": f"{r.line_start}-{r.line_end}",
+                        "preview": r.preview[:100],
+                    }
+                )
 
     # Deduplicate by path
     seen = set()
@@ -703,7 +675,7 @@ async def _action_usages(file_path: Path) -> Dict[str, Any]:
         "file": str(file_path),
         "usages": unique_usages[:15],  # Limit results
         "count": len(unique_usages),
-        "hint": "Files that import or reference this module"
+        "hint": "Files that import or reference this module",
     }
 
 
@@ -712,7 +684,7 @@ async def _action_related(file_path: Path) -> Dict[str, Any]:
     content = file_path.read_text(encoding="utf-8", errors="replace")
 
     # Extract imports from this file
-    import_pattern = r'^(?:from|import)\s+([a-zA-Z_][a-zA-Z0-9_\.]*)'
+    import_pattern = r"^(?:from|import)\s+([a-zA-Z_][a-zA-Z0-9_\.]*)"
     imports = []
     for line in content.split("\n"):
         match = re.match(import_pattern, line.strip())
@@ -724,18 +696,16 @@ async def _action_related(file_path: Path) -> Dict[str, Any]:
     related = []
 
     for imp in set(imports[:10]):  # Limit to avoid too many searches
-        results = await index.search(
-            query=f"module {imp}",
-            top_k=3,
-            min_relevance=0.5
-        )
+        results = await index.search(query=f"module {imp}", top_k=3, min_relevance=0.5)
         for r in results:
             if imp in r.relative_path.lower():
-                related.append({
-                    "path": r.relative_path,
-                    "relationship": "imported_by_this_file",
-                    "module": imp
-                })
+                related.append(
+                    {
+                        "path": r.relative_path,
+                        "relationship": "imported_by_this_file",
+                        "module": imp,
+                    }
+                )
 
     # Also get usages (files that import this)
     usages_result = await _action_usages(file_path)
@@ -745,7 +715,7 @@ async def _action_related(file_path: Path) -> Dict[str, Any]:
         "imports": list(set(imports))[:20],
         "imported_modules": related[:10],
         "imported_by": usages_result.get("usages", [])[:10],
-        "hint": "Shows both what this file imports and what imports this file"
+        "hint": "Shows both what this file imports and what imports this file",
     }
 
 
@@ -758,24 +728,21 @@ async def _action_history(file_path: Path) -> Dict[str, Any]:
             cwd=file_path.parent,
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
         )
 
         if result.returncode != 0:
             return {
                 "file": str(file_path),
                 "error": "Not a git repository or git not available",
-                "hint": "Git history requires the file to be in a git repository"
+                "hint": "Git history requires the file to be in a git repository",
             }
 
         commits = []
         for line in result.stdout.strip().split("\n"):
             if line:
                 parts = line.split(" ", 1)
-                commits.append({
-                    "hash": parts[0],
-                    "message": parts[1] if len(parts) > 1 else ""
-                })
+                commits.append({"hash": parts[0], "message": parts[1] if len(parts) > 1 else ""})
 
         # Get last modified info
         stat_result = subprocess.run(
@@ -783,7 +750,7 @@ async def _action_history(file_path: Path) -> Dict[str, Any]:
             cwd=file_path.parent,
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
         )
         last_modified = stat_result.stdout.strip() if stat_result.returncode == 0 else "unknown"
 
@@ -791,7 +758,7 @@ async def _action_history(file_path: Path) -> Dict[str, Any]:
             "file": str(file_path),
             "last_modified": last_modified,
             "recent_commits": commits,
-            "hint": "Recent git commits affecting this file"
+            "hint": "Recent git commits affecting this file",
         }
 
     except subprocess.TimeoutExpired:
@@ -812,70 +779,78 @@ async def _action_symbols(file_path: Path) -> Dict[str, Any]:
         # Python: find def/class
         for i, line in enumerate(lines, 1):
             # Function definitions
-            match = re.match(r'^(\s*)(async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+            match = re.match(r"^(\s*)(async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)", line)
             if match:
                 indent = len(match.group(1))
-                symbols.append({
-                    "type": "function",
-                    "name": match.group(3),
-                    "line": i,
-                    "indent": indent,
-                    "async": bool(match.group(2))
-                })
+                symbols.append(
+                    {
+                        "type": "function",
+                        "name": match.group(3),
+                        "line": i,
+                        "indent": indent,
+                        "async": bool(match.group(2)),
+                    }
+                )
             # Class definitions
-            match = re.match(r'^(\s*)class\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+            match = re.match(r"^(\s*)class\s+([a-zA-Z_][a-zA-Z0-9_]*)", line)
             if match:
                 indent = len(match.group(1))
-                symbols.append({
-                    "type": "class",
-                    "name": match.group(2),
-                    "line": i,
-                    "indent": indent
-                })
+                symbols.append(
+                    {"type": "class", "name": match.group(2), "line": i, "indent": indent}
+                )
 
     elif suffix in (".js", ".ts", ".jsx", ".tsx"):
         # JavaScript/TypeScript: find function/class/const
         for i, line in enumerate(lines, 1):
             # Functions
-            match = re.match(r'^\s*(export\s+)?(async\s+)?function\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+            match = re.match(
+                r"^\s*(export\s+)?(async\s+)?function\s+([a-zA-Z_][a-zA-Z0-9_]*)", line
+            )
             if match:
-                symbols.append({
-                    "type": "function",
-                    "name": match.group(3),
-                    "line": i,
-                    "exported": bool(match.group(1))
-                })
+                symbols.append(
+                    {
+                        "type": "function",
+                        "name": match.group(3),
+                        "line": i,
+                        "exported": bool(match.group(1)),
+                    }
+                )
             # Classes
-            match = re.match(r'^\s*(export\s+)?class\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+            match = re.match(r"^\s*(export\s+)?class\s+([a-zA-Z_][a-zA-Z0-9_]*)", line)
             if match:
-                symbols.append({
-                    "type": "class",
-                    "name": match.group(2),
-                    "line": i,
-                    "exported": bool(match.group(1))
-                })
+                symbols.append(
+                    {
+                        "type": "class",
+                        "name": match.group(2),
+                        "line": i,
+                        "exported": bool(match.group(1)),
+                    }
+                )
             # Arrow functions assigned to const
-            match = re.match(r'^\s*(export\s+)?const\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(async\s+)?\(', line)
+            match = re.match(
+                r"^\s*(export\s+)?const\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(async\s+)?\(", line
+            )
             if match:
-                symbols.append({
-                    "type": "function",
-                    "name": match.group(2),
-                    "line": i,
-                    "exported": bool(match.group(1)),
-                    "arrow": True
-                })
+                symbols.append(
+                    {
+                        "type": "function",
+                        "name": match.group(2),
+                        "line": i,
+                        "exported": bool(match.group(1)),
+                        "arrow": True,
+                    }
+                )
 
     else:
         # Generic: look for common patterns
         for i, line in enumerate(lines, 1):
             # Generic function pattern
-            match = re.match(r'^\s*(?:pub\s+)?(?:async\s+)?(?:fn|func|def|function)\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+            match = re.match(
+                r"^\s*(?:pub\s+)?(?:async\s+)?(?:fn|func|def|function)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+                line,
+            )
             if match:
-                symbols.append({
-                    "type": "function",
-                    "name": match.group(1),
-                    "line": i
-                })
+                symbols.append({"type": "function", "name": match.group(1), "line": i})
 
     # Group by type
     functions = [s for s in symbols if s["type"] == "function"]
@@ -887,13 +862,14 @@ async def _action_symbols(file_path: Path) -> Dict[str, Any]:
         "functions": functions,
         "classes": classes,
         "total_symbols": len(symbols),
-        "hint": "Jump to any symbol with file_preview(path, line_start=<line>)"
+        "hint": "Jump to any symbol with file_preview(path, line_start=<line>)",
     }
 
 
 # =============================================================================
 # CLI COMMANDS
 # =============================================================================
+
 
 async def build_index_cli(directories: List[str]):
     """Build index from CLI."""
@@ -902,10 +878,7 @@ async def build_index_cli(directories: List[str]):
 
     index = FileIndex()
 
-    stats = await index.build_index(
-        directories=directories,
-        show_progress=True
-    )
+    stats = await index.build_index(directories=directories, show_progress=True)
 
     print("\nIndex built successfully!")
     print(f"  Files: {stats['files_indexed']}")
@@ -945,7 +918,9 @@ async def run_tests():
         if results:
             for r in results:
                 print(f"  [{r.relevance:.1%}] {r.relative_path}")
-                print(f"         {r.chunk_type}: {r.chunk_name or 'unnamed'} (L{r.line_start}-{r.line_end})")
+                print(
+                    f"         {r.chunk_type}: {r.chunk_name or 'unnamed'} (L{r.line_start}-{r.line_end})"
+                )
         else:
             print("  No results")
 
@@ -961,7 +936,7 @@ Examples:
   python gateway.py              Start MCP server
   python gateway.py --index      Build index for F:/AI
   python gateway.py --test       Run test queries
-        """
+        """,
     )
     parser.add_argument("--index", action="store_true", help="Build search index")
     parser.add_argument("--test", action="store_true", help="Run test queries")
@@ -977,7 +952,9 @@ Examples:
     else:
         # Start MCP server
         print("Starting File Compass MCP Server...", file=sys.stderr)
-        print("Tools: file_search, file_preview, file_index_status, file_index_scan", file=sys.stderr)
+        print(
+            "Tools: file_search, file_preview, file_index_status, file_index_scan", file=sys.stderr
+        )
         mcp.run()
 
 

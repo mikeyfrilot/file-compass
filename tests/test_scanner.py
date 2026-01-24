@@ -2,12 +2,12 @@
 Tests for file_compass.scanner module.
 """
 
-import pytest
 import tempfile
-import os
-from pathlib import Path
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from file_compass.scanner import FileScanner, ScannedFile
 
@@ -26,7 +26,7 @@ class TestScannedFile:
             modified_at=now,
             content_hash="abc123",
             git_repo="/test",
-            is_git_tracked=True
+            is_git_tracked=True,
         )
         assert sf.path == Path("/test/file.py")
         assert sf.relative_path == "file.py"
@@ -46,7 +46,7 @@ class TestScannedFile:
             file_type="python",
             size_bytes=100,
             modified_at=now,
-            content_hash="abc123"
+            content_hash="abc123",
         )
         assert sf.git_repo is None
         assert sf.is_git_tracked is False
@@ -159,7 +159,7 @@ class TestFileScanner:
         """Test file hash computation."""
         scanner = FileScanner()
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
             f.write("test content")
             temp_path = Path(f.name)
 
@@ -178,11 +178,11 @@ class TestFileScanner:
         """Test that different content produces different hashes."""
         scanner = FileScanner()
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
             f.write("content 1")
             path1 = Path(f.name)
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
             f.write("content 2")
             path2 = Path(f.name)
 
@@ -208,10 +208,7 @@ class TestFileScanner:
             (Path(tmpdir) / "readme.md").write_text("# README")
             (Path(tmpdir) / "data.json").write_text("{}")
 
-            scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py", ".md", ".json"]
-            )
+            scanner = FileScanner(directories=[tmpdir], include_extensions=[".py", ".md", ".json"])
 
             files = list(scanner.scan_directory(Path(tmpdir)))
 
@@ -239,9 +236,7 @@ class TestFileScanner:
             (venv_dir / "lib.py").write_text("# venv file")
 
             scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"],
-                exclude_patterns=["venv/**"]
+                directories=[tmpdir], include_extensions=[".py"], exclude_patterns=["venv/**"]
             )
 
             files = list(scanner.scan_directory(Path(tmpdir)))
@@ -262,9 +257,7 @@ class TestFileScanner:
             (hidden_dir / "secret.py").write_text("# hidden")
 
             scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"],
-                exclude_patterns=[]
+                directories=[tmpdir], include_extensions=[".py"], exclude_patterns=[]
             )
 
             files = list(scanner.scan_directory(Path(tmpdir)))
@@ -280,10 +273,7 @@ class TestFileScanner:
             (Path(tmpdir) / "notes.txt").write_text("notes")
             (Path(tmpdir) / "image.png").write_bytes(b"\x89PNG")
 
-            scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"]
-            )
+            scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
 
             files = list(scanner.scan_directory(Path(tmpdir)))
 
@@ -297,10 +287,7 @@ class TestFileScanner:
             small_file.write_text("print('small')")
 
             # We won't actually create a 10MB file in tests, but we can mock the stat
-            scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"]
-            )
+            scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
 
             files = list(scanner.scan_directory(Path(tmpdir)))
             assert len(files) == 1
@@ -319,9 +306,7 @@ class TestFileScanner:
             (tests_dir / "test_main.py").write_text("# test")
 
             scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"],
-                exclude_patterns=[]
+                directories=[tmpdir], include_extensions=[".py"], exclude_patterns=[]
             )
 
             files = list(scanner.scan_directory(Path(tmpdir)))
@@ -339,10 +324,7 @@ class TestFileScanner:
                 (Path(tmpdir1) / "file1.py").write_text("# 1")
                 (Path(tmpdir2) / "file2.py").write_text("# 2")
 
-                scanner = FileScanner(
-                    directories=[tmpdir1, tmpdir2],
-                    include_extensions=[".py"]
-                )
+                scanner = FileScanner(directories=[tmpdir1, tmpdir2], include_extensions=[".py"])
 
                 files = list(scanner.scan_all())
                 assert len(files) == 2
@@ -354,10 +336,7 @@ class TestFileScanner:
             (Path(tmpdir) / "file2.py").write_text("# 2")
             (Path(tmpdir) / "file3.py").write_text("# 3")
 
-            scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"]
-            )
+            scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
 
             count = scanner.scan_count()
             assert count == 3
@@ -368,10 +347,7 @@ class TestFileScanner:
             test_file = Path(tmpdir) / "test.py"
             test_file.write_text("print('hello world')")
 
-            scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"]
-            )
+            scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
 
             files = list(scanner.scan_directory(Path(tmpdir)))
             assert len(files) == 1
@@ -407,12 +383,11 @@ class TestGitIntegration:
         result = scanner._find_git_repo(test_path)
         assert result == Path("/test")
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_get_git_tracked_files_success(self, mock_run):
         """Test getting git tracked files."""
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="file1.py\nfile2.py\nsrc/module.py\n"
+            returncode=0, stdout="file1.py\nfile2.py\nsrc/module.py\n"
         )
 
         scanner = FileScanner()
@@ -425,13 +400,10 @@ class TestGitIntegration:
         # Path separator converted for Windows
         assert "src\\module.py" in tracked or "src/module.py" in tracked
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_get_git_tracked_files_failure(self, mock_run):
         """Test handling git command failure."""
-        mock_run.return_value = MagicMock(
-            returncode=1,
-            stdout=""
-        )
+        mock_run.return_value = MagicMock(returncode=1, stdout="")
 
         scanner = FileScanner()
         repo_root = Path("/test/repo")
@@ -439,7 +411,7 @@ class TestGitIntegration:
         tracked = scanner._get_git_tracked_files(repo_root)
         assert len(tracked) == 0
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_get_git_tracked_files_cached(self, mock_run):
         """Test that git tracked files are cached."""
         scanner = FileScanner()
@@ -453,10 +425,11 @@ class TestGitIntegration:
         assert tracked == {"cached.py"}
         mock_run.assert_not_called()
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_get_git_tracked_files_timeout(self, mock_run):
         """Test handling git command timeout."""
         from subprocess import TimeoutExpired
+
         mock_run.side_effect = TimeoutExpired(cmd="git", timeout=30)
 
         scanner = FileScanner()
@@ -484,10 +457,7 @@ class TestEdgeCases:
                 unicode_file = Path(tmpdir) / "тест.py"
                 unicode_file.write_text("# unicode test", encoding="utf-8")
 
-                scanner = FileScanner(
-                    directories=[tmpdir],
-                    include_extensions=[".py"]
-                )
+                scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
 
                 files = list(scanner.scan_all())
                 assert len(files) == 1
@@ -504,9 +474,7 @@ class TestEdgeCases:
             (space_dir / "file.py").write_text("# test")
 
             scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"],
-                exclude_patterns=[]
+                directories=[tmpdir], include_extensions=[".py"], exclude_patterns=[]
             )
 
             files = list(scanner.scan_all())
@@ -524,10 +492,7 @@ class TestEdgeCases:
                 link_file = Path(tmpdir) / "link.py"
                 link_file.symlink_to(real_file)
 
-                scanner = FileScanner(
-                    directories=[tmpdir],
-                    include_extensions=[".py"]
-                )
+                scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
 
                 files = list(scanner.scan_all())
                 # Both real file and symlink should be scanned
@@ -543,10 +508,7 @@ class TestEdgeCases:
             test_file = Path(tmpdir) / "test.py"
             test_file.write_text("# test")
 
-            scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"]
-            )
+            scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
 
             # File should still be discovered even if hash fails
             files = list(scanner.scan_all())
@@ -577,18 +539,15 @@ class TestEdgeCases:
             test_file = Path(tmpdir) / "large.py"
             test_file.write_text("# test")
 
-            scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"]
-            )
+            scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
 
             # Mock the stat to return a very large file size
-            with patch.object(Path, 'stat') as mock_stat:
+            with patch.object(Path, "stat") as mock_stat:
                 mock_stat.return_value = MagicMock(
                     st_size=15 * 1024 * 1024,  # 15MB > 10MB limit
-                    st_mtime=datetime.now().timestamp()
+                    st_mtime=datetime.now().timestamp(),
                 )
-                files = list(scanner.scan_all())
+                list(scanner.scan_all())
                 # Large file should be skipped
                 # Note: The actual file is small, but mock returns large size
                 # This tests line 191-192
@@ -599,21 +558,18 @@ class TestEdgeCases:
             test_file = Path(tmpdir) / "test.py"
             test_file.write_text("# test")
 
-            scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"]
-            )
+            scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
 
             # This tests the OSError handling (lines 193-194)
             # by mocking stat to raise an OSError
             original_stat = Path.stat
 
             def mock_stat(self, follow_symlinks=True):
-                if 'test.py' in str(self):
+                if "test.py" in str(self):
                     raise OSError("Cannot stat file")
                 return original_stat(self)
 
-            with patch.object(Path, 'stat', mock_stat):
+            with patch.object(Path, "stat", mock_stat):
                 files = list(scanner.scan_all())
                 # File with stat error should be skipped
                 assert len(files) == 0
@@ -629,17 +585,11 @@ class TestEdgeCases:
             test_file = Path(tmpdir) / "tracked.py"
             test_file.write_text("# tracked")
 
-            scanner = FileScanner(
-                directories=[tmpdir],
-                include_extensions=[".py"]
-            )
+            scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
 
             # Mock git ls-files to return the file as tracked
-            with patch('subprocess.run') as mock_run:
-                mock_run.return_value = MagicMock(
-                    returncode=0,
-                    stdout="tracked.py\n"
-                )
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0, stdout="tracked.py\n")
 
                 files = list(scanner.scan_all())
                 assert len(files) == 1
