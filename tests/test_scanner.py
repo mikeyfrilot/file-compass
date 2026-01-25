@@ -492,11 +492,18 @@ class TestEdgeCases:
                 link_file = Path(tmpdir) / "link.py"
                 link_file.symlink_to(real_file)
 
+                # Default: symlinks are skipped (follow_symlinks=False)
                 scanner = FileScanner(directories=[tmpdir], include_extensions=[".py"])
-
                 files = list(scanner.scan_all())
-                # Both real file and symlink should be scanned
-                assert len(files) == 2
+                # Only real file should be scanned by default
+                assert len(files) == 1
+
+                # With follow_symlinks=True, both should be scanned
+                scanner_follow = FileScanner(
+                    directories=[tmpdir], include_extensions=[".py"], follow_symlinks=True
+                )
+                files_follow = list(scanner_follow.scan_all())
+                assert len(files_follow) == 2
             except OSError:
                 # Symlinks may not be supported
                 pytest.skip("Symlinks not supported on this system")

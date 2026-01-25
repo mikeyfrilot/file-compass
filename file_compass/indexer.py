@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import hnswlib
 import numpy as np
 
-from . import DEFAULT_DB_PATH, DEFAULT_INDEX_PATH, DEFAULT_SQLITE_PATH
+from . import _init_defaults, get_data_dir
 from .chunker import FileChunker
 from .config import get_config
 from .embedder import Embedder
@@ -23,8 +23,9 @@ from .scanner import FileScanner
 
 logger = logging.getLogger(__name__)
 
-# Default path for Merkle tree state
-DEFAULT_MERKLE_PATH = DEFAULT_DB_PATH / "merkle_state.json"
+def _get_default_merkle_path():
+    """Get default path for Merkle tree state."""
+    return get_data_dir() / "merkle_state.json"
 
 
 @dataclass
@@ -58,10 +59,17 @@ class FileIndex:
     ):
         config = get_config()
 
-        self.db_path = db_path or DEFAULT_DB_PATH
-        self.index_path = index_path or DEFAULT_INDEX_PATH
-        self.sqlite_path = sqlite_path or DEFAULT_SQLITE_PATH
-        self.merkle_path = merkle_path or DEFAULT_MERKLE_PATH
+        # Use provided paths or get defaults from user-writable location
+        if db_path is None or index_path is None or sqlite_path is None:
+            default_db = get_data_dir()
+            self.db_path = db_path or default_db
+            self.index_path = index_path or (default_db / "file_compass.hnsw")
+            self.sqlite_path = sqlite_path or (default_db / "files.db")
+        else:
+            self.db_path = db_path
+            self.index_path = index_path
+            self.sqlite_path = sqlite_path
+        self.merkle_path = merkle_path or _get_default_merkle_path()
 
         # HNSW config
         self.dim = config.embedding_dim
@@ -87,6 +95,8 @@ class FileIndex:
         if self._conn is None:
             self._conn = sqlite3.connect(str(self.sqlite_path))
             self._conn.row_factory = sqlite3.Row
+            # Enable foreign key constraint enforcement
+            self._conn.execute("PRAGMA foreign_keys = ON")
             self._init_schema()
         return self._conn
 
@@ -210,21 +220,17 @@ class FileIndex:
         chunks_indexed = 0
         embedding_id = 0
 
-        all_files = list(self.scanner.scan_all())
-        total_files = len(all_files)
-
         if show_progress:
-            print(f"Found {total_files} files to index")
+            print("Scanning and indexing files...")
 
-        # Process in batches for embedding efficiency
-        batch_size = 50
         all_texts = []
         all_metadata = []  # (file_id, chunk_idx, chunk)
 
         # Build Merkle tree for incremental updates
         merkle = MerkleTree()
 
-        for i, scanned_file in enumerate(all_files):
+        # Stream file scanning instead of materializing all files into memory
+        for i, scanned_file in enumerate(self.scanner.scan_all()):
             # Insert file record
             cursor = conn.execute(
                 """
@@ -275,17 +281,17 @@ class FileIndex:
             files_indexed += 1
 
             if show_progress and (i + 1) % 100 == 0:
-                print(f"  Scanned {i + 1}/{total_files} files...")
+                print(f"  Scanned {i + 1} files...")
 
         conn.commit()
 
         if show_progress:
             print(f"Generating embeddings for {len(all_texts)} chunks...")
 
-        # Generate embeddings in batches
+        # Generate embeddings (processed sequentially by Ollama)
         if all_texts:
             embeddings = await self.embedder.embed_batch(
-                all_texts, batch_size=batch_size, show_progress=show_progress
+                all_texts, show_progress=show_progress
             )
 
             # Add to HNSW and SQLite
