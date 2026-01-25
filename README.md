@@ -160,11 +160,34 @@ Add to your `claude_desktop_config.json`:
 
 ## Configuration
 
+### Environment Variables
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `FILE_COMPASS_DIRECTORIES` | `F:/AI` | Comma-separated directories |
-| `FILE_COMPASS_OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
-| `FILE_COMPASS_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
+| `FILE_COMPASS_DIRECTORIES` | `F:/AI` | Semicolon-separated directories |
+| `FILE_COMPASS_DATA_DIR` | `~/.file-compass` | Data directory for index/database |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
+| `FILE_COMPASS_SKIP_HIDDEN_DIRS` | `true` | Skip directories starting with `.` |
+| `FILE_COMPASS_FOLLOW_SYMLINKS` | `false` | Follow symbolic links |
+| `FILE_COMPASS_EXCLUDE_PATTERNS` | *(many)* | Semicolon-separated glob patterns |
+
+### Storage Location
+
+By default, File Compass stores its data in your user home directory:
+
+```
+~/.file-compass/
+├── file_compass.hnsw    # Vector index
+├── files.db             # SQLite metadata
+├── quick_index.db       # Filename/symbol index
+└── merkle_state.json    # For incremental updates
+```
+
+Override with `FILE_COMPASS_DATA_DIR`:
+
+```bash
+export FILE_COMPASS_DATA_DIR="D:/MyData/file-compass"
+```
 
 ## How It Works
 

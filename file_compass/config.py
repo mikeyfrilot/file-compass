@@ -70,6 +70,10 @@ class FileCompassConfig:
         ]
     )
 
+    # Directory filtering
+    skip_hidden_dirs: bool = True  # Skip directories starting with '.'
+    follow_symlinks: bool = False  # Follow symbolic links during scanning
+
     # Chunking
     max_chunk_tokens: int = 500
     chunk_overlap_tokens: int = 100
@@ -105,6 +109,12 @@ class FileCompassConfig:
 
         if os.environ.get("FILE_COMPASS_WATCH_ENABLED", "").lower() == "true":
             config.watch_enabled = True
+
+        if os.environ.get("FILE_COMPASS_SKIP_HIDDEN_DIRS", "").lower() == "false":
+            config.skip_hidden_dirs = False
+
+        if os.environ.get("FILE_COMPASS_FOLLOW_SYMLINKS", "").lower() == "true":
+            config.follow_symlinks = True
 
         return config
 

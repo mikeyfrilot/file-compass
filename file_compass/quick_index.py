@@ -16,14 +16,16 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import DEFAULT_DB_PATH
+from . import get_data_dir
 from .config import get_config
 from .scanner import FileScanner
 
 logger = logging.getLogger(__name__)
 
-# Quick index database path
-QUICK_INDEX_PATH = DEFAULT_DB_PATH / "quick_index.db"
+
+def _get_quick_index_path():
+    """Get the quick index database path."""
+    return get_data_dir() / "quick_index.db"
 
 
 @dataclass
@@ -51,7 +53,7 @@ class QuickIndex:
     """
 
     def __init__(self, db_path: Optional[Path] = None):
-        self.db_path = db_path or QUICK_INDEX_PATH
+        self.db_path = db_path or _get_quick_index_path()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn: Optional[sqlite3.Connection] = None
         self.scanner = FileScanner()
@@ -61,6 +63,8 @@ class QuickIndex:
         if self._conn is None:
             self._conn = sqlite3.connect(str(self.db_path))
             self._conn.row_factory = sqlite3.Row
+            # Enable foreign key constraint enforcement
+            self._conn.execute("PRAGMA foreign_keys = ON")
             self._init_schema()
         return self._conn
 

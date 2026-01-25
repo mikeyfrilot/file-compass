@@ -43,11 +43,15 @@ class FileScanner:
         directories: Optional[List[str]] = None,
         include_extensions: Optional[List[str]] = None,
         exclude_patterns: Optional[List[str]] = None,
+        skip_hidden_dirs: Optional[bool] = None,
+        follow_symlinks: Optional[bool] = None,
     ):
         config = get_config()
         self.directories = [Path(d) for d in (directories or config.directories)]
         self.include_extensions = set(include_extensions or config.include_extensions)
         self.exclude_patterns = exclude_patterns or config.exclude_patterns
+        self.skip_hidden_dirs = skip_hidden_dirs if skip_hidden_dirs is not None else config.skip_hidden_dirs
+        self.follow_symlinks = follow_symlinks if follow_symlinks is not None else config.follow_symlinks
 
         # Cache for git repo roots
         self._git_repos: dict[Path, Optional[Path]] = {}
@@ -108,7 +112,8 @@ class FileScanner:
             if result.returncode == 0:
                 for line in result.stdout.strip().split("\n"):
                     if line:
-                        tracked.add(line.replace("/", "\\"))
+                        # Normalize to POSIX separators for consistent comparison
+                        tracked.add(line.replace("\\", "/"))
         except Exception as e:
             logger.warning(f"Failed to get git tracked files for {repo_root}: {e}")
 
@@ -161,7 +166,7 @@ class FileScanner:
 
         logger.info(f"Scanning {directory}...")
 
-        for root, dirs, files in os.walk(directory):
+        for root, dirs, files in os.walk(directory, followlinks=self.follow_symlinks):
             root_path = Path(root)
 
             # Filter directories in-place to skip excluded paths
@@ -169,11 +174,15 @@ class FileScanner:
                 d
                 for d in dirs
                 if not self._matches_exclude_pattern(root_path / d, directory)
-                and not d.startswith(".")
+                and (not self.skip_hidden_dirs or not d.startswith("."))
             ]
 
             for filename in files:
                 file_path = root_path / filename
+
+                # Skip symlinked files when follow_symlinks is False
+                if not self.follow_symlinks and file_path.is_symlink():
+                    continue
 
                 # Check extension
                 if file_path.suffix.lower() not in self.include_extensions:
@@ -199,7 +208,8 @@ class FileScanner:
                 if git_repo:
                     git_repo_str = str(git_repo)
                     tracked_files = self._get_git_tracked_files(git_repo)
-                    rel_to_repo = str(file_path.relative_to(git_repo))
+                    # Normalize to POSIX separators for consistent comparison across platforms
+                    rel_to_repo = str(file_path.relative_to(git_repo)).replace("\\", "/")
                     is_tracked = rel_to_repo in tracked_files
 
                 yield ScannedFile(

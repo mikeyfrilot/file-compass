@@ -215,15 +215,17 @@ class Embedder:
         return embedding
 
     async def embed_batch(
-        self, texts: List[str], batch_size: int = 1, show_progress: bool = False
+        self, texts: List[str], show_progress: bool = False
     ) -> np.ndarray:
         """
         Generate embeddings for multiple texts sequentially.
         Processes one at a time for reliability with Ollama.
 
+        Note: Ollama doesn't support true batch embedding, so texts are
+        processed sequentially. This is intentional for reliability.
+
         Args:
             texts: List of texts to embed
-            batch_size: Ignored (always processes one at a time)
             show_progress: Print progress updates
 
         Returns:

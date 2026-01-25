@@ -26,13 +26,11 @@ except ImportError:
     print("FastMCP not installed. Install with: pip install mcp", file=sys.stderr)
     raise
 
-# Add parent to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from file_compass.config import get_config
-from file_compass.explainer import ResultExplainer, VisualPreviewGenerator
-from file_compass.indexer import FileIndex
-from file_compass.quick_index import get_quick_index
+# Package imports - use relative imports since this is part of the package
+from .config import get_config
+from .explainer import ResultExplainer, VisualPreviewGenerator
+from .indexer import FileIndex
+from .quick_index import get_quick_index
 
 # Configure logging
 logging.basicConfig(
@@ -114,9 +112,9 @@ async def file_search(
     """
     # Input validation
     if not query or not isinstance(query, str):
-        return {"error": "Query must be a non-empty string"}
+        return {"success": False, "error": "Query must be a non-empty string"}
     if len(query) > 1000:
-        return {"error": "Query too long (max 1000 characters)"}
+        return {"success": False, "error": "Query too long (max 1000 characters)"}
 
     index = await get_index_instance()
 
@@ -124,6 +122,7 @@ async def file_search(
     status = index.get_status()
     if status["files_indexed"] == 0:
         return {
+            "success": False,
             "error": "No files indexed yet",
             "hint": 'Run: python -m file_compass.cli index -d "F:/AI"',
         }
@@ -185,6 +184,7 @@ async def file_search(
         matches.append(match_data)
 
     return {
+        "success": True,
         "query": query,
         "results": matches,
         "count": len(matches),
@@ -242,13 +242,13 @@ async def file_preview(
 
     # Input validation
     if not path or not isinstance(path, str):
-        return {"error": "Path must be a non-empty string"}
+        return {"success": False, "error": "Path must be a non-empty string"}
     if len(path) > 500:
-        return {"error": "Path too long"}
+        return {"success": False, "error": "Path too long"}
     if line_start is not None and (not isinstance(line_start, int) or line_start < 1):
-        return {"error": "line_start must be a positive integer"}
+        return {"success": False, "error": "line_start must be a positive integer"}
     if line_end is not None and (not isinstance(line_end, int) or line_end < 1):
-        return {"error": "line_end must be a positive integer"}
+        return {"success": False, "error": "line_end must be a positive integer"}
     if context_lines < 0 or context_lines > 50:
         context_lines = 3  # Reset to default if invalid
 
@@ -257,10 +257,10 @@ async def file_preview(
 
         # Security: Validate path is within allowed directories
         if not _is_path_safe(file_path, config):
-            return {"error": "Access denied: path is outside allowed directories"}
+            return {"success": False, "error": "Access denied: path is outside allowed directories"}
 
         if not file_path.exists():
-            return {"error": f"File not found: {path}"}
+            return {"success": False, "error": f"File not found: {path}"}
 
         # Use visual preview generator for rich output
         if line_start is not None:
@@ -275,6 +275,7 @@ async def file_preview(
 
             if preview:
                 return {
+                    "success": True,
                     "path": path,
                     "lines": f"{preview.line_start}-{preview.line_end}",
                     "content": preview.content,
@@ -316,6 +317,7 @@ async def file_preview(
             preview_content += f"\n... ({len(lines) - 100} more lines)"
 
         return {
+            "success": True,
             "path": path,
             "lines": f"{line_offset}-{line_offset + len(numbered_lines) - 1}",
             "content": preview_content,
@@ -327,7 +329,7 @@ async def file_preview(
 
     except Exception as e:
         logger.error(f"file_preview error: {e}")
-        return {"error": "Failed to read file"}
+        return {"success": False, "error": "Failed to read file"}
 
 
 @mcp.tool()
@@ -342,6 +344,7 @@ async def file_index_status() -> Dict[str, Any]:
     status = index.get_status()
 
     return {
+        "success": True,
         "files_indexed": status["files_indexed"],
         "chunks_indexed": status["chunks_indexed"],
         "index_size_mb": round(status["index_size_mb"], 2),
@@ -444,9 +447,9 @@ async def file_quick_search(
     """
     # Input validation
     if not query or not isinstance(query, str):
-        return {"error": "Query must be a non-empty string"}
+        return {"success": False, "error": "Query must be a non-empty string"}
     if len(query) > 500:
-        return {"error": "Query too long (max 500 characters)"}
+        return {"success": False, "error": "Query too long (max 500 characters)"}
 
     # Clamp parameters
     top_k = max(1, min(100, top_k))
@@ -490,6 +493,7 @@ async def file_quick_search(
         matches.append(match_data)
 
     return {
+        "success": True,
         "query": query,
         "results": matches,
         "count": len(matches),
@@ -559,30 +563,30 @@ async def file_actions(
     """
     # Input validation
     if not path or not isinstance(path, str):
-        return {"error": "Path must be a non-empty string"}
+        return {"success": False, "error": "Path must be a non-empty string"}
     if len(path) > 500:
-        return {"error": "Path too long"}
+        return {"success": False, "error": "Path too long"}
     if not action or not isinstance(action, str):
-        return {"error": "Action must be a non-empty string"}
+        return {"success": False, "error": "Action must be a non-empty string"}
 
     valid_actions = ["context", "usages", "related", "history", "symbols"]
     if action not in valid_actions:
-        return {"error": "Invalid action", "available_actions": valid_actions}
+        return {"success": False, "error": "Invalid action", "available_actions": valid_actions}
 
     if line_start is not None and (not isinstance(line_start, int) or line_start < 1):
-        return {"error": "line_start must be a positive integer"}
+        return {"success": False, "error": "line_start must be a positive integer"}
     if line_end is not None and (not isinstance(line_end, int) or line_end < 1):
-        return {"error": "line_end must be a positive integer"}
+        return {"success": False, "error": "line_end must be a positive integer"}
 
     config = get_config()
     file_path = Path(path)
 
     # Security check
     if not _is_path_safe(file_path, config):
-        return {"error": "Access denied: path is outside allowed directories"}
+        return {"success": False, "error": "Access denied: path is outside allowed directories"}
 
     if not file_path.exists():
-        return {"error": "File not found"}
+        return {"success": False, "error": "File not found"}
 
     try:
         if action == "context":
@@ -597,7 +601,7 @@ async def file_actions(
             return await _action_symbols(file_path)
     except Exception as e:
         logger.error(f"Action {action} failed for {path}: {e}")
-        return {"error": "Action failed"}
+        return {"success": False, "error": "Action failed"}
 
 
 async def _action_context(
