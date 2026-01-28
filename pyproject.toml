@@ -8,8 +8,9 @@ version = "0.1.0"
 description = "Semantic file search for AI workstations using HNSW indexing"
 readme = "README.md"
 license = "MIT"
+requires-python = ">=3.10"
 authors = [
-    { name = "Mikey Frilot" }
+    {name = "mcp-tool-shop", email = "64996768+mcp-tool-shop@users.noreply.github.com"}
 ]
 keywords = ["semantic-search", "hnsw", "embeddings", "file-search", "mcp", "ollama"]
 classifiers = [
@@ -23,7 +24,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Text Processing :: Indexing",
 ]
-requires-python = ">=3.10"
+
 dependencies = [
     "httpx>=0.25.0",
     "numpy>=1.24.0",
@@ -41,7 +42,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/mcp-tool-shop/file-compass"
-Repository = "https://github.com/mcp-tool-shop/file-compass.git"
+Repository = "https://github.com/mcp-tool-shop/file-compass"
 Issues = "https://github.com/mcp-tool-shop/file-compass/issues"
 Changelog = "https://github.com/mcp-tool-shop/file-compass/blob/main/CHANGELOG.md"
 
