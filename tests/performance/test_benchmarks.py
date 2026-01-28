@@ -53,7 +53,7 @@ class TestScannerPerformance:
             scanner = FileScanner([tmpdir])
             
             def scan_op():
-                return list(scanner.scan())
+                return list(scanner.scan_all())
             
             result = benchmark(scan_op)
             assert len(result) == 100
@@ -72,7 +72,7 @@ class TestScannerPerformance:
             scanner = FileScanner([tmpdir])
             
             def scan_op():
-                return list(scanner.scan())
+                return list(scanner.scan_all())
             
             result = benchmark(scan_op)
             assert len(result) == 1000
@@ -154,9 +154,8 @@ class TestQuickIndexPerformance:
             for i in range(100):
                 (tmpdir_path / f"module_{i}.py").write_text(f"def function_{i}():\n    pass\n")
             
-            quick_index = QuickIndex()
-            
             def build_op():
+                quick_index = QuickIndex()
                 quick_index.build([tmpdir])
                 return quick_index
             
