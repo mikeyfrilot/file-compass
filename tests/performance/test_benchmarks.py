@@ -147,6 +147,8 @@ class TestQuickIndexPerformance:
     @pytest.mark.benchmark
     def test_quick_index_build_100_files(self, benchmark):
         """Benchmark: Building quick index on 100 files."""
+        import asyncio
+        
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             
@@ -156,7 +158,7 @@ class TestQuickIndexPerformance:
             
             def build_op():
                 quick_index = QuickIndex()
-                quick_index.build([tmpdir])
+                asyncio.run(quick_index.build_quick_index([tmpdir]))
                 return quick_index
             
             result = benchmark(build_op)
@@ -165,6 +167,8 @@ class TestQuickIndexPerformance:
     @pytest.mark.benchmark
     def test_quick_index_search_100(self, benchmark):
         """Benchmark: Quick search with 100 files indexed."""
+        import asyncio
+        
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             
@@ -173,7 +177,7 @@ class TestQuickIndexPerformance:
                 (tmpdir_path / f"module_{i}.py").write_text(f"def function_{i}():\n    pass\n")
             
             quick_index = QuickIndex()
-            quick_index.build([tmpdir])
+            asyncio.run(quick_index.build_quick_index([tmpdir]))
             
             def search_op():
                 return quick_index.search("function", 10)
